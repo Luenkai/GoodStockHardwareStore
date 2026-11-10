@@ -1,0 +1,42 @@
+{
+  "dataset": {
+    "name": "Shopify Product Catalogue",
+    "url": "https://huggingface.co/datasets/Shopify/product-catalogue",
+    "license": "Apache-2.0",
+    "recordsApprox": "48.3k",
+    "purpose": "Two hardware records selected from the public catalog as a starter seed.",
+    "limitations": "The source provides product titles, descriptions, brand, image, and taxonomy examples; it does not provide verified retail prices or inventory quantities for these seed records. Prices and quantities below are editable demo values, not source facts. Product images are representative web-search results and should be rights-checked or replaced with merchant-owned photos before a public launch."
+  },
+  "products": [
+    {
+      "sourceTitle": "PHILIP PN SMS Z 10X7/8",
+      "title": "No. 10 × 7/8 in. Phillips Pan-Head Sheet-Metal Screws",
+      "vendor": "HILLMAN GROUP RSC",
+      "productType": "Fasteners",
+      "category": "Hardware > Hardware Accessories > Hardware Fasteners > Screws > Sheet Metal Screws",
+      "sourceDescription": "No. 10; zinc-plated; pan head; 7/8 in. length; Phillips drive; sharp point; self-tapping; coarse thread; steel; indoor use; boxed packaging.",
+      "descriptionHtml": "<p>Steel sheet-metal screws with a zinc-plated finish, pan head, Phillips drive, and sharp self-tapping point.</p><ul><li>Size: No. 10 × 7/8 in.</li><li>Drive: Phillips</li><li>Finish: Zinc-plated</li><li>Use: Indoor</li></ul><p><strong>Starter listing:</strong> price and stock are example values. Confirm pack quantity, supplier, and retail price in Shopify Admin before live sales.</p>",
+      "demoPrice": "149.00",
+      "demoInventory": 40,
+      "currency": "PHP",
+      "imageFile": "client/public/images/hillman-screws.jpg",
+      "imageAlt": "Zinc-plated Phillips pan-head sheet-metal screw on a clean white background",
+      "imageSourceUrl": "https://files.manuscdn.com/user_upload_by_module/session_file/310519664074734867/TaRhuPXlNsyFKmns.jpg"
+    },
+    {
+      "sourceTitle": "3pcs LM317 DC-DC Converter Buck Step Down Module Linear Regulator Adjustable Voltage Regulator Power Supply Board",
+      "title": "3-Piece LM317 Adjustable Voltage Regulator Module",
+      "vendor": "Electronic Pro",
+      "productType": "Power & Electrical",
+      "category": "Hardware > Power & Electrical Supplies > Voltage Transformers & Regulators > Voltage Regulators",
+      "sourceDescription": "3-piece LM317 adjustable regulator module. The source listing describes 1.2–37 V output, 4.2–40 V input, 1.5 A minimum and 2.2 A typical output current, and -55 to +150 °C operating temperature. Confirm limits against the manufacturer's datasheet before sale.",
+      "descriptionHtml": "<p>Three LM317 adjustable voltage regulator modules for electronics projects and bench prototyping.</p><ul><li>Adjustable output: 1.2–37 V</li><li>Input: 4.2–40 V</li><li>Current: 1.5 A minimum; 2.2 A typical as stated by the source listing</li><li>Operating temperature: -55 to +150 °C as stated by the source listing</li></ul><p><strong>Starter listing:</strong> specifications come from the source dataset listing and should be checked against the manufacturer's datasheet. Price and stock are example values.</p>",
+      "demoPrice": "299.00",
+      "demoInventory": 18,
+      "currency": "PHP",
+      "imageFile": "client/public/images/lm317-module.jpg",
+      "imageAlt": "LM317 adjustable voltage regulator circuit board module with blue terminal blocks",
+      "imageSourceUrl": "https://files.manuscdn.com/user_upload_by_module/session_file/310519664074734867/UEYELuMGOjvNWMsT.jpg"
+    }
+  ]
+}
