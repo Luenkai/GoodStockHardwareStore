@@ -1,6 +1,7 @@
 import { parse as parseCookie, serialize } from "cookie";
 import type { Request, Response } from "express";
 import { TRPCError } from "@trpc/server";
+import { localCatalog, localProductByHandle } from "./localCatalog";
 
 const API_VERSION = "2026-10";
 const CART_COOKIE = "goodstock_cart_id";
@@ -27,6 +28,7 @@ export type StoreProduct = {
   images: { nodes: StoreImage[] };
   priceRange: { minVariantPrice: Money };
   variants: { nodes: StoreVariant[] };
+  source?: "shopify" | "local";
 };
 
 const PRODUCT_FIELDS = `
@@ -115,7 +117,13 @@ async function storefrontRequest<T>(query: string, variables: Record<string, unk
   return payload.data;
 }
 
+function hasStorefrontConfig(): boolean {
+  const domain = process.env.SHOPIFY_STORE_DOMAIN?.replace(/^https?:\/\//i, "").replace(/\/$/, "").toLowerCase();
+  return Boolean(domain && /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(domain) && process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN);
+}
+
 export async function listProducts(): Promise<StoreProduct[]> {
+  if (!hasStorefrontConfig()) return localCatalog;
   const data = await storefrontRequest<{ products: { nodes: StoreProduct[] } }>(`
     query GoodstockHomeProducts {
       products(first: 8, sortKey: TITLE) { nodes { ${PRODUCT_FIELDS} } }
@@ -125,6 +133,12 @@ export async function listProducts(): Promise<StoreProduct[]> {
 }
 
 export async function listProductPage(cursor?: string | null): Promise<{ products: StoreProduct[]; nextCursor: string | null }> {
+  if (!hasStorefrontConfig()) {
+    const start = cursor ? Number(cursor) : 0;
+    const products = localCatalog.slice(start, start + 24);
+    const nextIndex = start + products.length;
+    return { products, nextCursor: nextIndex < localCatalog.length ? String(nextIndex) : null };
+  }
   const data = await storefrontRequest<{
     products: {
       nodes: StoreProduct[];
@@ -145,6 +159,7 @@ export async function listProductPage(cursor?: string | null): Promise<{ product
 }
 
 export async function getProductByHandle(handle: string): Promise<StoreProduct | null> {
+  if (!hasStorefrontConfig()) return localProductByHandle(handle);
   const data = await storefrontRequest<{ product: StoreProduct | null }>(`
     query GoodstockProduct($handle: String!) {
       product(handle: $handle) { ${PRODUCT_FIELDS} }

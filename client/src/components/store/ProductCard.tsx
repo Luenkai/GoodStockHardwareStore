@@ -9,6 +9,7 @@ export default function ProductCard({ product, index = 0 }: { product: StoreProd
   const variant = product.variants.nodes[0];
   const image = productImage(product);
   const available = productIsAvailable(product);
+  const checkoutReady = product.source !== "local";
   const addToCart = trpc.storefront.cart.add.useMutation({
     onSuccess: async () => {
       await utils.storefront.cart.get.invalidate();
@@ -31,8 +32,8 @@ export default function ProductCard({ product, index = 0 }: { product: StoreProd
           <h3><Link href={`/products/${product.handle}`}>{product.title}</Link></h3>
           <div className="product-card__price-row">
             <span className="price">{formatMoney(product.priceRange.minVariantPrice)}</span>
-            <span className={available ? "stock-note" : "stock-note stock-note--out"}>
-              <span className="stock-note__dot" aria-hidden="true" />{available ? "In stock" : "Unavailable"}
+              <span className={available && checkoutReady ? "stock-note" : "stock-note stock-note--out"}>
+              <span className="stock-note__dot" aria-hidden="true" />{!checkoutReady ? "Preview listing" : available ? "In stock" : "Unavailable"}
             </span>
           </div>
         </div>
@@ -40,7 +41,7 @@ export default function ProductCard({ product, index = 0 }: { product: StoreProd
           className="quick-add"
           type="button"
           aria-label={`Add ${product.title} to cart`}
-          disabled={!available || !variant || addToCart.isPending}
+          disabled={!checkoutReady || !available || !variant || addToCart.isPending}
           onClick={() => variant && addToCart.mutate({ merchandiseId: variant.id, quantity: 1 })}
         >
           {addToCart.isPending ? <LoaderCircle size={18} className="spin" aria-hidden="true" /> : <Plus size={19} aria-hidden="true" />}
