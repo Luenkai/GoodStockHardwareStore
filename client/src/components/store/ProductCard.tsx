@@ -9,7 +9,7 @@ export default function ProductCard({ product, index = 0 }: { product: StoreProd
   const variant = product.variants.nodes[0];
   const image = productImage(product);
   const available = productIsAvailable(product);
-  const checkoutReady = product.source !== "local";
+  const checkoutReady = product.source === "shopify";
   const addToCart = trpc.storefront.cart.add.useMutation({
     onSuccess: async () => {
       await utils.storefront.cart.get.invalidate();
@@ -33,7 +33,7 @@ export default function ProductCard({ product, index = 0 }: { product: StoreProd
           <div className="product-card__price-row">
             <span className="price">{formatMoney(product.priceRange.minVariantPrice)}</span>
               <span className={available && checkoutReady ? "stock-note" : "stock-note stock-note--out"}>
-              <span className="stock-note__dot" aria-hidden="true" />{!checkoutReady ? "Preview listing" : available ? "In stock" : "Unavailable"}
+              <span className="stock-note__dot" aria-hidden="true" />{!checkoutReady ? "Demo listing" : available ? "In stock" : "Unavailable"}
             </span>
           </div>
         </div>

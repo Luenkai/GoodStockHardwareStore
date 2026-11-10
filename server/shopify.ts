@@ -28,7 +28,7 @@ export type StoreProduct = {
   images: { nodes: StoreImage[] };
   priceRange: { minVariantPrice: Money };
   variants: { nodes: StoreVariant[] };
-  source?: "shopify" | "local";
+  source?: "shopify" | "supabase" | "local";
 };
 
 const PRODUCT_FIELDS = `
@@ -122,7 +122,46 @@ function hasStorefrontConfig(): boolean {
   return Boolean(domain && /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(domain) && process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN);
 }
 
+function hasSupabaseConfig(): boolean {
+  return Boolean((process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL) && (process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_PUBLISHABLE_KEY));
+}
+
+function supabaseConfig(): { url: string; key: string } {
+  const url = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? "";
+  const key = process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "";
+  return { url: url.replace(/\/$/, ""), key };
+}
+
+function mapSupabaseProduct(row: Record<string, unknown>): StoreProduct {
+  const inventory = Number(row.inventory ?? 0);
+  const price = String(row.price ?? "0");
+  const currencyCode = String(row.currency_code ?? "PHP");
+  const image = row.image_url ? { url: String(row.image_url), altText: row.image_alt ? String(row.image_alt) : null, width: null, height: null } : null;
+  return {
+    id: String(row.id),
+    handle: String(row.handle),
+    title: String(row.title),
+    description: String(row.description ?? ""),
+    productType: String(row.product_type ?? "Hardware"),
+    vendor: String(row.vendor ?? "Goodstock Hardware"),
+    tags: [],
+    featuredImage: image,
+    images: { nodes: image ? [image] : [] },
+    priceRange: { minVariantPrice: { amount: price, currencyCode } },
+    variants: { nodes: [{ id: `supabase:${String(row.id)}`, title: "Standard", sku: null, availableForSale: inventory > 0, price: { amount: price, currencyCode } }] },
+    source: "supabase",
+  };
+}
+
+async function supabaseProducts(): Promise<StoreProduct[]> {
+  const { url, key } = supabaseConfig();
+  const response = await fetch(`${url}/rest/v1/products?select=*&is_active=eq.true&order=created_at.desc`, { headers: { apikey: key, Authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(12000) });
+  if (!response.ok) throw new TRPCError({ code: "BAD_GATEWAY", message: "The Supabase catalog could not be loaded." });
+  return ((await response.json()) as Record<string, unknown>[]).map(mapSupabaseProduct);
+}
+
 export async function listProducts(): Promise<StoreProduct[]> {
+  if (hasSupabaseConfig()) return supabaseProducts();
   if (!hasStorefrontConfig()) return localCatalog;
   const data = await storefrontRequest<{ products: { nodes: StoreProduct[] } }>(`
     query GoodstockHomeProducts {
@@ -133,6 +172,13 @@ export async function listProducts(): Promise<StoreProduct[]> {
 }
 
 export async function listProductPage(cursor?: string | null): Promise<{ products: StoreProduct[]; nextCursor: string | null }> {
+  if (hasSupabaseConfig()) {
+    const products = await supabaseProducts();
+    const start = cursor ? Number(cursor) : 0;
+    const page = products.slice(start, start + 24);
+    const nextIndex = start + page.length;
+    return { products: page, nextCursor: nextIndex < products.length ? String(nextIndex) : null };
+  }
   if (!hasStorefrontConfig()) {
     const start = cursor ? Number(cursor) : 0;
     const products = localCatalog.slice(start, start + 24);
@@ -159,6 +205,7 @@ export async function listProductPage(cursor?: string | null): Promise<{ product
 }
 
 export async function getProductByHandle(handle: string): Promise<StoreProduct | null> {
+  if (hasSupabaseConfig()) return (await supabaseProducts()).find(product => product.handle === handle) ?? null;
   if (!hasStorefrontConfig()) return localProductByHandle(handle);
   const data = await storefrontRequest<{ product: StoreProduct | null }>(`
     query GoodstockProduct($handle: String!) {

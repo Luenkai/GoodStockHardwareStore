@@ -19,7 +19,7 @@ export type StoreProduct = {
   images: { nodes: StoreImage[] };
   priceRange: { minVariantPrice: Money };
   variants: { nodes: StoreVariant[] };
-  source?: "shopify" | "local";
+  source?: "shopify" | "supabase" | "local";
 };
 
 export type CartLine = {
