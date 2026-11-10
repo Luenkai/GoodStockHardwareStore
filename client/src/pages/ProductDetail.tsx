@@ -26,7 +26,7 @@ export default function ProductDetail() {
           const image = productImage(product);
           const variant = product.variants.nodes[0];
           const available = productIsAvailable(product);
-          const checkoutReady = product.source === "shopify";
+          const checkoutReady = product.source === "supabase" || product.source === "shopify";
           const descriptionLines = product.description.split(/\n+/).map(line => line.trim()).filter(Boolean);
           return (
             <motion.section className="product-detail" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.36 }}>
@@ -44,9 +44,9 @@ export default function ProductDetail() {
                     <input id="product-quantity" value={quantity} inputMode="numeric" readOnly aria-live="polite" />
                     <button type="button" aria-label="Increase quantity" disabled={quantity >= 99} onClick={() => setQuantity(value => Math.min(99, value + 1))}><Plus size={16} /></button>
                   </div>
-                  <AddToCartButton variantId={variant?.id} productName={product.title} quantity={quantity} disabled={!checkoutReady || !available} />
+                  <AddToCartButton product={product} quantity={quantity} disabled={!checkoutReady || !available} />
                 </div>
-                <p className="checkout-note">{checkoutReady ? "Secure payment and delivery options are handled at Shopify checkout." : "Demo catalog only: connect the Supabase order flow before taking orders."}</p>
+                <p className="checkout-note">{product.source === "shopify" ? "Secure payment and delivery options are handled at Shopify checkout." : "Demo checkout saves an order record in Supabase and does not collect payment."}</p>
                 <div className="product-detail__meta"><span>Sold by {product.vendor || "Goodstock Hardware"}</span></div>
               </div>
             </motion.section>
