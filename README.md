@@ -1,30 +1,28 @@
-# Hardware Store System
+# Goodstock Hardware Store
 
-React / Express / tRPC / Drizzle starter, adapted from the Sandbox web-db-user template.
+A React/Vite storefront with an Express/tRPC API, Supabase-backed product catalog and authentication, and a demo checkout that stores order records without collecting payment.
 
-- `pnpm dev`: development server; honors `PORT` (default 3000).
-- `pnpm build` / `pnpm start`: build and serve `dist/index.js` and `dist/public/`.
-- `pnpm db:migrate`: apply checked-in migrations. `pnpm db:push`: generate and apply new schema changes.
-- `pnpm check` / `pnpm test`: types and application tests.
+## Commands
 
-Start with the Webdev skill's default-template guide. Platform login, storage, payments and service contracts live in its shared references; read the relevant capability before extending its helper.
+- `pnpm dev`: development server on port 3000 by default.
+- `pnpm check`: TypeScript and project checks.
+- `pnpm test`: application tests.
+- `pnpm build` / `pnpm start`: build and serve the site.
 
-## Goodstock store operations
+## Store data and checkout
 
-Shopify is the source of truth for the storefront catalog, inventory, cart, checkout, payment configuration, and orders. Manage products, stock, orders, and payment settings in Shopify Admin or the Shopify mobile app. The website sends customers to Shopify Checkout and never handles card details.
+Supabase is the source of truth for active product rows, customer authentication, and demo orders. The browser cart is stored locally and checkout writes order and line-item records to Supabase. No payment provider is connected and the app does not collect card details; do not use it to accept real orders.
 
-The configured connection is a new Shopify development store. Before real sales, claim the store, set up a payment provider, and review its shipping/tax settings in Shopify Admin. A development Preview does not prove live payments are enabled. Customer sign-in, account creation, order history, delivery addresses, and recovery use Shopify's hosted customer-account flow.
+If Supabase is not configured, the storefront serves a non-purchasable local preview catalog. If Supabase is configured but a curated addition has not yet been seeded, it also appears as a non-purchasable preview until `supabase/catalog_expansion.sql` is applied. The initial records are documented in `data/hardware-seed.json`; the curated hardware additions and their attribution are in `data/qte-catalog-expansion.json` and `data/source-notes.md`. Prices and quantities marked as demo values are illustrative, not supplier quotes or verified inventory.
 
-`data/hardware-seed.json` documents two starter records from the [Shopify Product Catalogue dataset](https://huggingface.co/datasets/Shopify/product-catalogue) (Apache-2.0). The public dataset lists about 48.3k multimodal product records and includes hardware examples; this shop imports only two. Source records do not provide verified retail prices or inventory quantities for these items, so the PHP prices and quantities are editable demo values, not source facts. Confirm the supplier, pack size, pricing, and stock before taking orders. Product images are representative web-search images; rights-check or replace them with merchant-owned photos before a public launch.
+## Supabase setup
 
-## Development
+1. Configure `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_URL`, and `SUPABASE_PUBLISHABLE_KEY` as described in `.env.example`.
+2. Apply `supabase/schema.sql` to a new Supabase project to create the demo tables and original starter products.
+3. Apply `supabase/catalog_expansion.sql` to add the ten curated hardware examples. It is idempotent and leaves existing handles unchanged. Review demo prices and stock before using it.
+4. Enable email authentication and set the public site URL in Supabase Auth settings.
+5. For deployments, set the same public URL and publishable key in both the client build environment and the serverless function environment. Never put a service-role key in client code.
 
-Run `pnpm dev` for the Express/tRPC storefront on port 3000. Use `pnpm check`, `pnpm test`, and `pnpm build` for the project's standard checks. The route manifest is served at `/manus-routes.json` from `client/public/manus-routes.json`.
+## Netlify
 
-`server/_core/publicConfig.ts` exposes only named public runtime values. Private keys stay server-side. The platform serves managed `/manus-storage/` assets; the application does not register a second proxy.
-
-## Netlify deployment
-
-The project can run as one Netlify site: React/Vite is published as static files, while `netlify/functions/api.ts` runs the Express/tRPC and Shopify backend as a serverless function. `netlify.toml` contains the build, API proxy, and SPA fallback rules. Add Shopify credentials as Netlify environment variables; never commit them to the frontend.
-
-Platform configuration is readable and editable through `webdev.config`. Default settings are initial values, not enforced constraints. The agent may modify the files, commands and configuration or follow the flexible guide for another stack.
+`netlify.toml` publishes the static React app and routes `/api/*` to `netlify/functions/api.ts`. Connect the repository to Netlify and set the Supabase environment variables in the site settings. Product data, account state, and demo orders remain in Supabase.

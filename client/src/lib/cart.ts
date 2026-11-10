@@ -9,13 +9,30 @@ export type DemoCartItem = {
 const STORAGE_KEY = "goodstock_demo_cart";
 const EVENT_NAME = "goodstock-cart-updated";
 
-function readCart(): DemoCartItem[] {
+function parseCart(raw: string): DemoCartItem[] {
   try {
-    const value = JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? "[]");
+    const value = JSON.parse(raw);
     return Array.isArray(value) ? value : [];
   } catch {
     return [];
   }
+}
+
+function readCart(): DemoCartItem[] {
+  return parseCart(window.localStorage.getItem(STORAGE_KEY) ?? "[]");
+}
+
+let cachedSnapshotRaw: string | null = null;
+let cachedSnapshot: DemoCartItem[] = [];
+const EMPTY_SERVER_CART: DemoCartItem[] = [];
+
+function getCartSnapshot(): DemoCartItem[] {
+  const raw = window.localStorage.getItem(STORAGE_KEY) ?? "[]";
+  if (raw !== cachedSnapshotRaw) {
+    cachedSnapshotRaw = raw;
+    cachedSnapshot = parseCart(raw);
+  }
+  return cachedSnapshot;
 }
 
 function writeCart(items: DemoCartItem[]): void {
@@ -51,7 +68,7 @@ export function useDemoCart(): DemoCartItem[] {
       window.addEventListener("storage", callback);
       return () => { window.removeEventListener(EVENT_NAME, callback); window.removeEventListener("storage", callback); };
     },
-    readCart,
-    () => [],
+    getCartSnapshot,
+    () => EMPTY_SERVER_CART,
   );
 }

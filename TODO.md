@@ -1,10 +1,22 @@
-# TODO — Hardware Store System
+# TODO — Goodstock Hardware Store
 
-- [x] **Responsive storefront and product discovery** — Build a hardware-store website with real products visible as the main feature; include a responsive storefront home page, product catalog, hardware categories, product imagery, prices, availability, search/filter/sort, specific headlines, and a clear primary shopping CTA. Make the main feature prominent and product previews useful. Load the catalog in Shopify cursor pages with an explicit “Load more products” action so products beyond the first page remain discoverable.
-- [x] **Product preview, cart, orders, and checkout** — Support product details/specifications, quantity selection, and add-to-cart; editable cart quantities and item removal; subtotal and total; hand off to Shopify Checkout for order review, delivery information, payment, order confirmation, and receipts, with customer order status/receipt review in Shopify customer accounts. Use Shopify as commerce source of truth with its Storefront Cart API and Shopify Checkout; never collect payment-card data in the storefront.
-- [x] **Customer accounts** — Provide customer sign-up, login, logout, password recovery, account access, saved delivery details, order history, and order status/receipt review through the Shopify-hosted customer-account flow. The account entry opens the store's Shopify `/account` page, which presents “Sign in” and “Sign in or create an account.” Include useful loading and error states.
-- [x] **Shopify store and seed dataset** — Set up a new Shopify store and seed exactly two hardware demo products from the public Shopify Product Catalogue dataset; attach a product image to each Shopify product. Mark any starter price or inventory values not present in the dataset as editable examples. The store's Shopify Admin must be manageable from mobile; do not seed a connected/existing store without request.
-- [x] **Design system and responsive interaction** — Use one coherent design system; show the actual product and enlarge the main feature; group content with intentional spacing; wrap headlines well; align by eye; make prominent CTA; use a distinct accent color and consistent icons; maintain readable text contrast; avoid filler badges, redundant labels, random italics, unnecessary embellishments, and monospace except where useful; use tabular numerals. Keep nested radii consistent with inner radius = outer radius - padding. Make the experience friendly on mobile and desktop.
-- [x] **Useful animation and feedback** — Add purposeful motion for navigation, cart updates, loading states, confirmations, and other useful actions. Provide loading states, animate helpful feedback, and respect reduced-motion preferences.
-- [x] **User's original scope** — Deliver a Hardware Store System website with the required store-site functions including order, payment via Shopify Checkout handoff, product preview, sign-up, login, and a commerce database managed in Shopify Admin/mobile app. Design may be chosen by the builder, add animations, and preserve every design constraint above.
-- [ ] **Activate real payments** — Claim the new Shopify development store and configure a payment provider, shipping, and tax in Shopify Admin before taking real orders. The storefront already hands off to Shopify Checkout, but real payment acceptance is not confirmed or enabled by this build.
+## Implemented
+
+- [x] Responsive storefront with home, product search/filter/sort, product details, availability, category navigation, and a local preview fallback.
+- [x] Supabase-backed active product catalog and authentication; no Shopify service integration.
+- [x] Local-storage demo cart with quantity changes and removal; demo checkout creates Supabase order and line-item records without collecting payment.
+- [x] Account sign-in/sign-up and recent demo-order history.
+- [x] Curated hardware catalog expansion from a CC BY 4.0 MRO dataset; source IDs, attribution, product specifications, and demo-value caveats are documented in `data/qte-catalog-expansion.json` and `data/source-notes.md`.
+- [x] Generic, original category illustrations for the added demo records.
+
+## Remaining before real commerce
+
+- [ ] Implement saved-address creation/editing/deletion and password-recovery flows in the account UI.
+- [ ] Connect a payment provider and test order confirmation, refunds, and receipts.
+- [ ] Add verified merchant pricing, real inventory and reservation/concurrency controls, fulfillment, shipping/tax rules, and operational support information.
+- [ ] Replace or rights-check the original starter product photography; verify all supplier specifications before public sale.
+- [ ] Validate deployment environment variables, Supabase Auth redirect URLs, and row-level security against the production project.
+
+## Important
+
+The current checkout is a demo that writes order data to Supabase only. It does not accept or collect payment and should not be represented as a live purchasing flow.

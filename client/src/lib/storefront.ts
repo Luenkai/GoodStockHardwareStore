@@ -19,31 +19,7 @@ export type StoreProduct = {
   images: { nodes: StoreImage[] };
   priceRange: { minVariantPrice: Money };
   variants: { nodes: StoreVariant[] };
-  source?: "shopify" | "supabase" | "local";
-};
-
-export type CartLine = {
-  id: string;
-  quantity: number;
-  merchandise: {
-    id: string;
-    title: string;
-    availableForSale: boolean;
-    price: Money;
-    product: {
-      title: string;
-      handle: string;
-      featuredImage: StoreImage | null;
-    };
-  };
-};
-
-export type StoreCart = {
-  id: string;
-  checkoutUrl: string;
-  totalQuantity: number;
-  cost: { subtotalAmount: Money; totalAmount: Money };
-  lines: { nodes: CartLine[] };
+  source?: "supabase" | "local";
 };
 
 export function formatMoney(money?: Money | null): string {
@@ -62,10 +38,15 @@ export function formatMoney(money?: Money | null): string {
 
 export function productImage(product: Pick<StoreProduct, "featuredImage" | "productType">): StoreImage {
   if (product.featuredImage?.url) return product.featuredImage;
-  const fastener = product.productType.toLowerCase().includes("fastener");
+  const type = product.productType.toLowerCase();
+  const image = type.includes("fastener")
+    ? { url: "/images/fasteners-illustration.svg", altText: "Generic fasteners illustration; not an exact product photo" }
+    : type.includes("electrical")
+      ? { url: "/images/electrical-illustration.svg", altText: "Generic electrical parts illustration; not an exact product photo" }
+      : { url: "/images/tools-illustration.svg", altText: "Generic hand tools illustration; not an exact product photo" };
   return {
-    url: fastener ? "/images/hillman-screws.jpg" : "/images/lm317-module.jpg",
-    altText: fastener ? "Zinc-plated pan-head sheet-metal screw" : "LM317 adjustable voltage regulator module",
+    url: image.url,
+    altText: image.altText,
     width: null,
     height: null,
   };

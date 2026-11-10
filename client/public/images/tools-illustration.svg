@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="480" viewBox="0 0 600 480" role="img" aria-labelledby="title desc">
+  <title id="title">Hand tools illustration</title>
+  <desc id="desc">Generic adjustable wrench and screwdriver illustration on a muted green background.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#e5ede5"/><stop offset="1" stop-color="#cbd8cc"/></linearGradient>
+    <linearGradient id="metal" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff"/><stop offset=".5" stop-color="#9aa9a1"/><stop offset="1" stop-color="#54665d"/></linearGradient>
+    <linearGradient id="handle" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#d48352"/><stop offset="1" stop-color="#9f4d2d"/></linearGradient>
+    <filter id="shadow" x="-.2" y="-.2" width="1.4" height="1.5"><feDropShadow dx="0" dy="16" stdDeviation="14" flood-color="#19362a" flood-opacity=".2"/></filter>
+  </defs>
+  <rect width="600" height="480" rx="34" fill="url(#bg)"/>
+  <circle cx="120" cy="94" r="74" fill="#fff" opacity=".25"/>
+  <g filter="url(#shadow)" transform="rotate(35 300 245)">
+    <path d="M289 97c-47 0-84 37-84 84 0 26 12 50 31 65l95 96c12 12 31 12 43 0s12-31 0-43l-96-96c10-12 16-27 16-44 0-14-4-27-11-38l-34 34-33-33 34-34c-11-6-23-9-36-9h-1z" fill="url(#metal)" stroke="#576b60" stroke-width="5" stroke-linejoin="round"/>
+    <path d="M238 144l-30-30 20-20 30 30" fill="none" stroke="#f7faf7" stroke-width="7" stroke-linecap="round"/>
+    <path d="M348 314l34-34" stroke="#e9f0eb" stroke-width="8" stroke-linecap="round" opacity=".7"/>
+  </g>
+  <g filter="url(#shadow)" transform="rotate(-28 400 254)">
+    <rect x="382" y="110" width="36" height="178" rx="17" fill="url(#metal)"/>
+    <path d="M400 89l-18 22h36z" fill="#65776d"/>
+    <rect x="366" y="274" width="68" height="125" rx="28" fill="url(#handle)"/>
+    <path d="M382 300v70M400 296v78M418 300v70" stroke="#f7c19e" stroke-width="4" stroke-linecap="round" opacity=".62"/>
+  </g>
+  <path d="M70 410h460" stroke="#4f6959" stroke-width="2" opacity=".18"/>
+</svg>

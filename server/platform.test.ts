@@ -20,6 +20,13 @@ describe("current platform integration", () => {
     new Function("window", "document", publicPlatformScript({}))({}, fakeDocument);
     expect(appended).toHaveLength(0);
   });
+  it("exposes only explicitly publishable Supabase credentials", () => {
+    const config = publicPlatformConfig({ SUPABASE_URL: "demo-project", SUPABASE_KEY: "sb_publishable_test", SUPABASE_SERVICE_ROLE_KEY: "service-only-test" });
+    expect(config).toMatchObject({ supabaseUrl: "https://demo-project.supabase.co", supabasePublishableKey: "sb_publishable_test" });
+    expect(publicPlatformConfig({ SUPABASE_URL: "demo-project", SUPABASE_KEY: "sb_secret_test" }).supabasePublishableKey).toBe("");
+    const script = publicPlatformScript({ SUPABASE_URL: "demo-project", SUPABASE_SERVICE_ROLE_KEY: "service-only-test" });
+    expect(script).not.toContain("service-only-test");
+  });
   it("does not guess a production API when the project environment is absent", async () => {
     vi.stubEnv("MANUS_API_URL", ""); vi.stubEnv("MANUS_API_KEY", "test-only");
     const request = vi.fn(); vi.stubGlobal("fetch", request);

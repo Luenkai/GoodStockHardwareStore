@@ -1,8 +1,8 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, Menu, Search, ShoppingBag, UserRound, X } from "lucide-react";
-import { type FormEvent, type ReactNode, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { trpc } from "@/lib/trpc";
+import { useDemoCart } from "@/lib/cart";
 
 function Logo() {
   return (
@@ -18,9 +18,28 @@ export function StoreHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [term, setTerm] = useState("");
-  const cartQuery = trpc.storefront.cart.get.useQuery(undefined, { staleTime: 10_000, retry: 1 });
-  const cart = cartQuery.data as { totalQuantity?: number } | null | undefined;
-  const itemCount = cart?.totalQuantity ?? 0;
+  const cart = useDemoCart();
+  const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const menuToggleRef = useRef<HTMLButtonElement>(null);
+  const searchToggleRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    setMenuOpen(false);
+    setSearchOpen(false);
+  }, [location]);
+
+  useEffect(() => {
+    if (!menuOpen && !searchOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+        setSearchOpen(false);
+        (menuOpen ? menuToggleRef.current : searchToggleRef.current)?.focus();
+      }
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [menuOpen, searchOpen]);
 
   const submitSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -32,6 +51,7 @@ export function StoreHeader() {
 
   const closeMenu = () => setMenuOpen(false);
   return (
+    <>
     <header className="store-header">
       <a className="skip-link" href="#main-content">Skip to products</a>
       <div className="store-header__inner">
@@ -39,6 +59,7 @@ export function StoreHeader() {
         <nav className="desktop-nav" aria-label="Main navigation">
           <Link href="/products" aria-current={location === "/products" ? "page" : undefined}>Shop all</Link>
           <Link href="/products#fasteners">Fasteners</Link>
+          <Link href="/products#tools">Tools</Link>
           <Link href="/products#power-electrical">Power &amp; electrical</Link>
         </nav>
         <div className="header-actions">
@@ -47,7 +68,7 @@ export function StoreHeader() {
             <label className="visually-hidden" htmlFor="header-search">Search products</label>
             <input id="header-search" value={term} onChange={event => setTerm(event.target.value)} placeholder="Search hardware" />
           </form>
-          <button className="icon-button mobile-search-toggle" type="button" aria-label={searchOpen ? "Close search" : "Search products"} onClick={() => setSearchOpen(open => !open)}>
+          <button ref={searchToggleRef} className="icon-button mobile-search-toggle" type="button" aria-label={searchOpen ? "Close search" : "Search products"} aria-expanded={searchOpen} onClick={() => { setSearchOpen(open => !open); setMenuOpen(false); }}>
             {searchOpen ? <X size={20} /> : <Search size={20} />}
           </button>
           <Link href="/account" className="icon-button account-link" aria-label="Your account">
@@ -57,14 +78,14 @@ export function StoreHeader() {
             <ShoppingBag size={20} strokeWidth={1.8} />
             {itemCount > 0 && <span className="cart-count" aria-hidden="true">{itemCount > 99 ? "99+" : itemCount}</span>}
           </Link>
-          <button className="icon-button mobile-menu-toggle" type="button" aria-label={menuOpen ? "Close navigation" : "Open navigation"} aria-expanded={menuOpen} onClick={() => setMenuOpen(open => !open)}>
+          <button ref={menuToggleRef} className="icon-button mobile-menu-toggle" type="button" aria-label={menuOpen ? "Close navigation" : "Open navigation"} aria-expanded={menuOpen} onClick={() => { setMenuOpen(open => !open); setSearchOpen(false); }}>
             {menuOpen ? <X size={21} /> : <Menu size={21} />}
           </button>
         </div>
       </div>
       <AnimatePresence>
         {searchOpen && (
-          <motion.form className="mobile-search-panel" role="search" onSubmit={submitSearch} initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.18 }}>
+          <motion.form id="mobile-search-panel" className="mobile-search-panel" role="search" onSubmit={submitSearch} initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.18 }}>
             <label className="visually-hidden" htmlFor="mobile-search">Search products</label>
             <input id="mobile-search" autoFocus value={term} onChange={event => setTerm(event.target.value)} placeholder="What are you looking for?" />
             <button className="button button--dark button--compact" type="submit" aria-label="Submit search"><ArrowRight size={18} /></button>
@@ -73,15 +94,23 @@ export function StoreHeader() {
       </AnimatePresence>
       <AnimatePresence>
         {menuOpen && (
-          <motion.nav className="mobile-nav" aria-label="Mobile navigation" initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }}>
+          <motion.nav id="mobile-navigation" className="mobile-nav" aria-label="Mobile navigation" initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }}>
             <Link href="/products" onClick={closeMenu}>Shop all hardware</Link>
             <Link href="/products#fasteners" onClick={closeMenu}>Fasteners</Link>
+            <Link href="/products#tools" onClick={closeMenu}>Tools</Link>
             <Link href="/products#power-electrical" onClick={closeMenu}>Power &amp; electrical</Link>
             <Link href="/account" onClick={closeMenu}>Orders &amp; account</Link>
           </motion.nav>
         )}
       </AnimatePresence>
     </header>
+    {(menuOpen || searchOpen) && <button className="mobile-panel-backdrop" type="button" tabIndex={-1} aria-label="Close menu and search" onClick={() => {
+      const toggle = menuOpen ? menuToggleRef.current : searchToggleRef.current;
+      setMenuOpen(false);
+      setSearchOpen(false);
+      toggle?.focus();
+    }} />}
+    </>
   );
 }
 

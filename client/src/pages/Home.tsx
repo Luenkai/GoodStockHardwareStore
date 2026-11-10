@@ -8,7 +8,8 @@ import { formatMoney, productImage, type StoreProduct } from "@/lib/storefront";
 
 function StorefrontSkeleton() {
   return (
-    <div className="page-width home-skeleton" aria-label="Loading the hardware catalog" aria-busy="true">
+    <div className="page-width home-skeleton" aria-busy="true" role="status" aria-live="polite">
+      <span className="sr-only" role="status" aria-live="polite">Loading the hardware catalog…</span>
       <div className="skeleton hero-skeleton" />
       <div className="skeleton-line" />
       <div className="skeleton-grid"><div className="skeleton product-skeleton" /><div className="skeleton product-skeleton" /></div>
@@ -21,16 +22,17 @@ function StorefrontError({ onRetry }: { onRetry: () => void }) {
     <section className="catalog-state" role="alert">
       <span className="catalog-state__eyebrow">Store connection</span>
       <h1>The hardware catalog could not load.</h1>
-      <p>Try again in a moment. If this keeps happening, check the Shopify connection in project settings.</p>
+      <p>Try again in a moment. If this keeps happening, check the Supabase catalog connection.</p>
       <button type="button" className="button button--dark" onClick={onRetry}><RefreshCw size={17} /> Try again</button>
     </section>
   );
 }
 
-function CategoryTiles({ fastener, electrical }: { fastener?: StoreProduct; electrical?: StoreProduct }) {
+function CategoryTiles({ fastener, tools, electrical }: { fastener?: StoreProduct; tools?: StoreProduct; electrical?: StoreProduct }) {
   const cards = [
     { id: "fasteners", name: "Fasteners", detail: "Screws and the small parts that hold a fix together.", product: fastener },
-    { id: "power-electrical", name: "Power & electrical", detail: "Regulators and useful bench-side electronics.", product: electrical },
+    { id: "tools", name: "Tools", detail: "Practical hand tools for measuring and everyday repairs.", product: tools },
+    { id: "power-electrical", name: "Power & electrical", detail: "Electrical supplies and components for compatible projects.", product: electrical },
   ];
   return (
     <section className="category-section page-width" aria-labelledby="category-title">
@@ -59,6 +61,7 @@ export default function Home() {
   const query = trpc.storefront.products.useQuery(undefined, { retry: 1, staleTime: 30_000 });
   const products = (query.data ?? []) as StoreProduct[];
   const fastener = products.find(product => product.productType.toLowerCase().includes("fastener")) ?? products[0];
+  const tools = products.find(product => product.productType.toLowerCase().includes("tool"));
   const electrical = products.find(product => product.productType.toLowerCase().includes("electrical")) ?? products.find(product => product !== fastener);
 
   return (
@@ -67,14 +70,14 @@ export default function Home() {
         {query.isLoading ? <StorefrontSkeleton /> : query.isError ? <div className="page-width"><StorefrontError onRetry={() => void query.refetch()} /></div> : (
           <>
             {products.length === 0 ? (
-              <section className="page-width catalog-state"><span className="catalog-state__eyebrow">Catalog</span><h1>Your next project starts here.</h1><p>Add products in Shopify Admin and they will appear in this storefront automatically.</p><Link className="button button--dark" href="/products">Browse hardware</Link></section>
+              <section className="page-width catalog-state"><span className="catalog-state__eyebrow">Catalog</span><h1>Your next project starts here.</h1><p>Active products in the Supabase catalog appear here automatically.</p><Link className="button button--dark" href="/products">Browse hardware</Link></section>
             ) : (
               <>
                 <section className="hero-section page-width">
                   <motion.div className="hero-copy" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.48, ease: [0.22, 1, 0.36, 1] }}>
                     <p className="eyebrow"><span className="eyebrow__mark" />Hardware for everyday fixes</p>
                     <h1>Build the fix.<br /><span>Make it last.</span></h1>
-                    <p className="hero-copy__body">Reliable fasteners and electrical essentials, picked to get the work moving without the runaround.</p>
+                    <p className="hero-copy__body">Reliable fasteners, practical hand tools, and electrical essentials for everyday repairs.</p>
                     <div className="hero-actions">
                       <Link className="button button--accent" href={fastener ? `/products/${fastener.handle}` : "/products"}>Shop the essentials <ArrowRight size={18} /></Link>
                       <Link className="quiet-link" href="/products">See all hardware</Link>
@@ -92,9 +95,9 @@ export default function Home() {
                   </motion.div>
                 </section>
                 <section className="value-strip" aria-label="How this store works">
-                  <div className="page-width value-strip__inner"><p>Clear product details</p><p>Secure Shopify checkout</p><p>Orders in your account</p></div>
+                  <div className="page-width value-strip__inner"><p>Clear product details</p><p>Demo checkout — no payment</p><p>Orders linked to your account</p></div>
                 </section>
-                <CategoryTiles fastener={fastener} electrical={electrical} />
+                <CategoryTiles fastener={fastener} tools={tools} electrical={electrical} />
                 <section className="product-section page-width" aria-labelledby="products-title">
                   <div className="section-heading section-heading--row">
                     <div><p className="eyebrow">On the shelf</p><h2 id="products-title">Hardware for the work ahead.</h2></div>

@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="480" viewBox="0 0 600 480" role="img" aria-labelledby="title desc">
+  <title id="title">Electrical parts illustration</title>
+  <desc id="desc">Generic electrical relay, fuse, and insulation tape illustration on a warm neutral background.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f2eadf"/><stop offset="1" stop-color="#e4d6c5"/></linearGradient>
+    <linearGradient id="case" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff"/><stop offset="1" stop-color="#c8d0c9"/></linearGradient>
+    <linearGradient id="coil" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#75957c"/><stop offset="1" stop-color="#344d40"/></linearGradient>
+    <filter id="shadow" x="-.2" y="-.2" width="1.4" height="1.5"><feDropShadow dx="0" dy="16" stdDeviation="14" flood-color="#4b3b2f" flood-opacity=".19"/></filter>
+  </defs>
+  <rect width="600" height="480" rx="34" fill="url(#bg)"/>
+  <circle cx="465" cy="93" r="72" fill="#fff" opacity=".28"/>
+  <g filter="url(#shadow)" transform="rotate(-8 246 230)">
+    <rect x="128" y="140" width="232" height="180" rx="22" fill="url(#case)" stroke="#78877e" stroke-width="5"/>
+    <rect x="158" y="170" width="172" height="112" rx="13" fill="#e8eee9" stroke="#95a29a" stroke-width="4"/>
+    <path d="M195 255v-30l34-31 30 28 35-39" fill="none" stroke="#668472" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="195" cy="225" r="7" fill="#b66541"/><circle cx="259" cy="222" r="7" fill="#b66541"/><circle cx="294" cy="183" r="7" fill="#b66541"/>
+    <path d="M161 320v34M205 320v34M249 320v34M293 320v34M337 320v34" stroke="#64746b" stroke-width="9" stroke-linecap="round"/>
+  </g>
+  <g filter="url(#shadow)" transform="rotate(14 434 326)">
+    <rect x="375" y="298" width="152" height="62" rx="30" fill="url(#case)" stroke="#748178" stroke-width="5"/>
+    <rect x="395" y="307" width="114" height="44" rx="20" fill="#d7aa68" stroke="#9c784d" stroke-width="4"/>
+    <rect x="415" y="311" width="75" height="36" rx="18" fill="#f4ead9" stroke="#9c784d" stroke-width="4"/>
+    <path d="M376 311l-22-8v52l22-8M527 311l22-8v52l-22-8" fill="#697a70"/>
+  </g>
+  <g filter="url(#shadow)" transform="rotate(-18 154 354)">
+    <circle cx="145" cy="355" r="45" fill="none" stroke="url(#coil)" stroke-width="24"/>
+    <circle cx="145" cy="355" r="20" fill="#eadfce"/>
+    <path d="M178 380c18 13 24 26 20 42" fill="none" stroke="#4b6956" stroke-width="12" stroke-linecap="round"/>
+  </g>
+  <path d="M65 420h470" stroke="#846f59" stroke-width="2" opacity=".18"/>
+</svg>
