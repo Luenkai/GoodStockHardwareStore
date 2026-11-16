@@ -17,6 +17,7 @@
 
 ## Setup or verification required
 
+- [x] Provide an admin-only switch from the profile/account page into business management.
 - [ ] Apply `supabase/business-app.sql` to the target Supabase project after `supabase/schema.sql`.
 - [ ] Bootstrap the first admin account with the SQL instructions in `README.md` / `LOCAL_SETUP.md`.
 - [ ] Validate Supabase Auth redirect URLs, project settings and RLS policies against the deployment project.

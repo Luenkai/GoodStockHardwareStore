@@ -1,4 +1,4 @@
-import { ArrowRight, Box, ClipboardList, LoaderCircle, LogOut, ShieldCheck } from "lucide-react";
+import { ArrowRight, Box, ClipboardList, LayoutDashboard, LoaderCircle, LogOut, ShieldCheck } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { Link } from "wouter";
 import StoreLayout from "@/components/store/StoreLayout";
@@ -26,6 +26,7 @@ export default function Account() {
   const [orders, setOrders] = useState<AccountOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState("");
+  const [businessRole, setBusinessRole] = useState<string | null>(null);
 
   useEffect(() => {
     if (!supabase) return;
@@ -37,6 +38,19 @@ export default function Account() {
     const { data } = supabase.auth.onAuthStateChange((_event, session) => setUser(session?.user ?? null));
     return () => data.subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!supabase || !user) {
+      setBusinessRole(null);
+      return;
+    }
+    let active = true;
+    void supabase.from("business_staff").select("role").eq("user_id", user.id).maybeSingle()
+      .then(({ data }) => {
+        if (active) setBusinessRole(data?.role ?? null);
+      });
+    return () => { active = false; };
+  }, [user]);
 
   useEffect(() => {
     if (!supabase || !user) {
@@ -87,6 +101,13 @@ export default function Account() {
             {!supabase ? <p className="account-error" role="alert">Supabase is not configured in this deployment yet.</p> : loading ? <div className="skeleton account-skeleton" aria-busy="true"><span className="sr-only" role="status" aria-live="polite">Checking your account…</span></div> : user ? (
               <div className="account-session">
                 <p>Signed in as <strong>{user.email}</strong>.</p>
+                {businessRole === "admin" && (
+                  <Link href="/business" className="account-business-switch">
+                    <span className="account-business-switch__icon"><LayoutDashboard size={19} aria-hidden="true" /></span>
+                    <span className="account-business-switch__copy"><strong>Switch to business management</strong><small>Open the admin workspace</small></span>
+                    <ArrowRight size={18} aria-hidden="true" />
+                  </Link>
+                )}
                 <button type="button" className="button button--accent" onClick={() => void signOut()}><LogOut size={17} /> Sign out</button>
                 <section className="account-orders" aria-labelledby="account-orders-title">
                   <div className="account-orders__heading"><h2 id="account-orders-title">Recent demo orders</h2><span>Latest 10</span></div>

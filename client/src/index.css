@@ -292,6 +292,14 @@ main { flex: 1; }
 .account-form input:focus { border-color: #848f83; box-shadow: 0 0 0 3px rgba(36, 53, 47, 0.08); }
 .account-form .button { justify-self: start; margin-top: 2px; }
 .account-form .quiet-link { justify-self: start; padding: 3px 0; border: 0; background: transparent; text-align: left; cursor: pointer; }
+.account-business-switch { display: flex; align-items: center; gap: 12px; width: fit-content; max-width: 100%; margin-top: 20px; padding: 12px 14px; border: 1px solid #cbd5c8; border-radius: 14px; background: #f0f3ec; color: var(--ink); text-decoration: none; transition: background 150ms ease, border-color 150ms ease, transform 150ms ease; }
+.account-business-switch:hover { border-color: #718473; background: #e7eee3; transform: translateY(-1px); }
+.account-business-switch:focus-visible { outline: 3px solid rgba(36, 53, 47, 0.3); outline-offset: 3px; }
+.account-business-switch__icon { display: grid; flex: 0 0 38px; place-items: center; width: 38px; height: 38px; border-radius: 12px; background: var(--deep-green); color: #f3f1e8; }
+.account-business-switch__copy { display: grid; min-width: 0; gap: 3px; }
+.account-business-switch__copy strong { font-size: 12px; line-height: 1.35; }
+.account-business-switch__copy small { color: #627067; font-size: 10px; line-height: 1.4; }
+.account-business-switch > svg:last-child { flex: 0 0 auto; margin-left: 4px; color: #526457; }
 .account-orders { margin-top: 26px; padding-top: 21px; border-top: 1px solid var(--line); }
 .account-orders__heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
 .account-orders__heading h2 { margin: 0; font-family: "Space Grotesk", sans-serif; font-size: 18px; font-weight: 600; letter-spacing: -0.04em; }
