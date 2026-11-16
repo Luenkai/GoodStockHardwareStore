@@ -2,21 +2,33 @@
 
 ## Implemented
 
-- [x] Responsive storefront with home, product search/filter/sort, product details, availability, category navigation, and a local preview fallback.
-- [x] Supabase-backed active product catalog and authentication; no Shopify service integration.
-- [x] Local-storage demo cart with quantity changes and removal; demo checkout creates Supabase order and line-item records without collecting payment.
-- [x] Account sign-in/sign-up and recent demo-order history.
-- [x] Curated hardware catalog expansion from a CC BY 4.0 MRO dataset; source IDs, attribution, product specifications, and demo-value caveats are documented in `data/qte-catalog-expansion.json` and `data/source-notes.md`.
-- [x] Generic, original category illustrations for the added demo records.
+- [x] Responsive storefront with home, product search/filter/sort, product details, availability, category navigation and local preview fallback.
+- [x] Supabase-backed storefront catalog, authentication and demo checkout; no payment provider is connected.
+- [x] Additive, full-height staff workspace at `/business`, styled with the existing Goodstock visual system.
+- [x] Supabase-authenticated role-aware portal for inventory clerk, sales personnel, admin and instructor roles.
+- [x] Shared inventory management with SKU and reorder level, low-stock indicators, and inventory reflected in storefront availability.
+- [x] Atomic staff sale recording with database-validated prices and stock locks, receipts, line items and stock decrement.
+- [x] Role management for existing Supabase accounts, with staff access enforced by RLS and checked database functions.
+- [x] Dashboard cards, low-stock and recent transaction lists, and a recent-sales chart.
+- [x] Simple Linear Regression and Random Forest Regression for demand prediction. Instructor-only training saves versioned JSON artifacts and evaluation metrics in Supabase; admins can predict from the saved models.
+- [x] Held-out MAE, RMSE and R² metrics with descriptions; instructor-only model/dataset preview and CSV download.
+- [x] Deterministic synthetic dataset in `data/demand-sales-1200.csv` with 1,200 monthly product rows, demand, price/promotion/seasonality features and sales revenue.
+- [x] Added tests for dataset row count, model reproducibility, metrics and prediction values.
+
+## Setup or verification required
+
+- [ ] Apply `supabase/business-app.sql` to the target Supabase project after `supabase/schema.sql`.
+- [ ] Bootstrap the first admin account with the SQL instructions in `README.md` / `LOCAL_SETUP.md`.
+- [ ] Validate Supabase Auth redirect URLs, project settings and RLS policies against the deployment project.
+- [ ] Test the app against the actual Supabase project with each of the four staff roles; this sandbox has no project credentials/database configured.
 
 ## Remaining before real commerce
 
-- [ ] Implement saved-address creation/editing/deletion and password-recovery flows in the account UI.
-- [ ] Connect a payment provider and test order confirmation, refunds, and receipts.
-- [ ] Add verified merchant pricing, real inventory and reservation/concurrency controls, fulfillment, shipping/tax rules, and operational support information.
-- [ ] Replace or rights-check the original starter product photography; verify all supplier specifications before public sale.
-- [ ] Validate deployment environment variables, Supabase Auth redirect URLs, and row-level security against the production project.
+- [ ] Connect and test payment processing, refunds, receipts and order confirmation.
+- [ ] Add verified merchant pricing, real inventory reconciliation and operational fulfillment.
+- [ ] Add shipping/tax rules, support information and production incident workflows.
+- [ ] Replace or rights-check original starter product photography and verify supplier specifications.
 
 ## Important
 
-The current checkout is a demo that writes order data to Supabase only. It does not accept or collect payment and should not be represented as a live purchasing flow.
+The CSV and model evaluation data are deterministic synthetic examples, not verified historic sales. Predictions and product-velocity labels are for demonstration and planning only, not guaranteed forecasts. Neither the storefront checkout nor business sales captures payment details.

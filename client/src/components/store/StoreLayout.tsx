@@ -123,6 +123,7 @@ export function StoreFooter() {
         <div className="store-footer__links">
           <Link href="/products">Shop hardware</Link>
           <Link href="/account">Orders &amp; account</Link>
+          <Link href="/business">Staff portal</Link>
           <Link href="/cart">Cart</Link>
         </div>
         <span className="store-footer__copyright">© {new Date().getFullYear()} Goodstock Hardware</span>
