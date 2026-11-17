@@ -41,6 +41,7 @@ export default function Cart() {
         .from("orders")
         .select("id")
         .eq("user_id", user.id)
+        .neq("status", "cancelled")
         .order("created_at", { ascending: false })
         .limit(10);
       if (!active) return;
@@ -76,15 +77,23 @@ export default function Cart() {
     if (!user) { setMessage("Sign in or create an account before placing a demo order."); return; }
     if (!items.length || checkingOut) return;
     setCheckingOut(true); setMessage("");
-    const { data: order, error } = await supabase.from("orders").insert({ user_id: user.id, customer_email: user.email, total: subtotal.toFixed(2), currency_code: items[0].product.priceRange.minVariantPrice.currencyCode }).select("id").single();
-    if (error || !order) { setCheckingOut(false); setMessage(error?.message || "The demo order could not be created."); return; }
-    const { error: itemError } = await supabase.from("order_items").insert(items.map(item => ({ order_id: order.id, product_id: item.product.id, title: item.product.title, quantity: item.quantity, unit_price: item.product.priceRange.minVariantPrice.amount, image_url: productImage(item.product).url })));
-    setCheckingOut(false);
-    if (itemError) { setMessage(itemError.message); return; }
-    const purchasedIds = items.map(item => item.product.id);
-    clearCart();
-    setRecentProductIds(current => [...purchasedIds, ...current]);
-    setOrderId(order.id); toast.success("Demo order created.");
+    try {
+      const { data: order, error } = await supabase.rpc("create_storefront_demo_order", {
+        items: items.map(item => ({ product_id: item.product.id, quantity: item.quantity })),
+      });
+      if (error) throw error;
+      if (!order?.order_id) throw new Error("The demo order could not be created.");
+      const purchasedIds = items.map(item => item.product.id);
+      clearCart();
+      setRecentProductIds(current => [...purchasedIds, ...current]);
+      setOrderId(String(order.order_id));
+      toast.success("Demo order created.");
+      void catalogQuery.refetch();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "The demo order could not be created.");
+    } finally {
+      setCheckingOut(false);
+    }
   };
 
   return (
@@ -107,7 +116,7 @@ export default function Cart() {
           <section className="cart-recommendations" aria-labelledby="cart-recommendations-title">
             <div className="cart-recommendations__heading">
               <div><p className="eyebrow">Picked for your project</p><h2 id="cart-recommendations-title">You might need these next.</h2></div>
-              <p>Suggestions match product categories from your cart or recent orders when available.</p>
+              <p>Suggestions match product categories from your cart and, when signed in, your recent purchases.</p>
             </div>
             <div className="product-grid cart-recommendations__grid">
               {recommendations.map((product, index) => <ProductCard key={product.id} product={product} index={index} />)}

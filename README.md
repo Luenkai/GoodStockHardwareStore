@@ -4,20 +4,20 @@ Goodstock combines the existing customer-facing hardware storefront with a separ
 
 ## Application areas
 
-- **Storefront:** home, product search/filter/sort, product details, cart, account sign-in, demo order history, and cart/recent-order-based product suggestions.
+- **Storefront:** home, product search/filter/sort, product details, cart, account sign-in, demo order history, and cart/recent-purchase-based product suggestions. Demo orders consume shared stock and appear in business sales reporting.
 - **Business workspace:** dashboard cards and recent-sales chart; shared inventory management with reversible product archiving; sales transactions; role management; and demand/sales predictions.
 - **Roles:** `inventory_clerk` manages inventory; `sales_personnel` records sales; `admin` has dashboard, inventory, sales, staff-role and prediction access; `instructor` has dashboard and knowledge-analysis access, including model training, metrics, and dataset preview.
 - **Knowledge analysis:** Simple Linear Regression and Random Forest Regression. Instructors can train and version model artifacts in Supabase. Administrators can load saved artifacts and see predictions, but not the evaluation-metric or dataset screens.
 
 ## Database and staff setup
 
-Both application areas use the existing Supabase project and browser authentication. The business tables and security policies use **Supabase/PostgreSQL** (not MySQL). Sales are created through a PostgreSQL RPC that locks inventory rows, checks current prices and stock, creates the receipt and line items, and decrements stock in one transaction. Supabase row-level security protects staff roles, inventory writes, sales records, model artifacts, and evaluation metrics.
+Both application areas use the same Supabase project and browser authentication. The business tables and security policies use **Supabase/PostgreSQL** (not MySQL). Storefront demo checkout uses a PostgreSQL RPC that validates the signed-in customer, database prices, active products, quantities and stock, then creates the customer order and line items and decrements inventory atomically. Staff sales use a separate atomic RPC. Role-checked dashboard and sales RPCs combine staff sales with non-cancelled storefront demo orders without treating shoppers as employees. No payment is taken.
 
 1. Configure `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_URL`, and `SUPABASE_PUBLISHABLE_KEY` as described in `.env.example`.
 2. Apply `supabase/schema.sql` to a new Supabase project. Apply `supabase/catalog_expansion.sql` if using the curated preview catalog.
    For existing catalog rows, run `supabase/update_product_images.sql` after the product rows exist; it changes only `image_url` and `image_alt` for the ten curated listings. Image sources, licenses, attributions, and product-match caveats are recorded in `data/product-image-credits.md`.
-3. Apply `supabase/business-app.sql` to add staff roles, shared inventory metadata, atomic business sales, model storage and role-checked RPCs, including the reversible product archive function.
-4. Existing projects that already applied an earlier `business-app.sql` should apply `supabase/archive_business_products.sql` to add the archive/restore RPC. The additive migration is safe to rerun; fresh installs already receive the function from the full business schema.
+3. Apply `supabase/business-app.sql` after the base schema to add staff roles, shared inventory metadata, atomic staff and storefront demo sales, unified dashboard reporting, model storage and role-checked RPCs, including the reversible product archive function.
+4. Existing projects that already applied an earlier `business-app.sql` should apply `supabase/archive_business_products.sql` if they do not yet have the archive/restore RPC, then apply `supabase/storefront_demo_sales.sql` to add atomic customer demo checkout and unified staff/storefront reporting. Both migrations are safe to rerun; fresh installs already receive these functions from the full business schema.
 5. Create the first admin through the existing Supabase Auth sign-up flow at `/account`. Then, in Supabase SQL Editor, replace the example email below with that account’s email and run it once:
 
    ```sql
@@ -51,7 +51,7 @@ Run `pnpm test` to validate dataset row count, model reproducibility, and predic
 
 ## Demo commerce and production cautions
 
-The customer storefront checkout remains a demo that stores Supabase order records without collecting payment. Business sales are also internal demo transactions and do not collect payment details. Before real commerce, add payment processing and refunds, verified merchant prices and inventory, fulfillment, shipping/tax rules, production auth redirect validation, operational support, and production row-level-security testing. Product images/specifications and all demo values still require rights and supplier verification.
+The customer storefront checkout remains a demo that stores Supabase order records, decrements demo inventory, and appears in staff dashboard/sales reporting without collecting payment. Business sales are also internal demo transactions and do not collect payment details. Before real commerce, add payment processing and refunds, verified merchant prices and inventory, fulfillment, shipping/tax rules, production auth redirect validation, operational support, and production row-level-security testing. Product images/specifications and all demo values still require rights and supplier verification.
 
 ## Netlify
 

@@ -64,6 +64,7 @@ type Sale = {
   currency_code: string;
   status: string;
   created_at: string;
+  source: "staff" | "storefront";
 };
 const roleNames: Record<Role, string> = {
   inventory_clerk: "Inventory clerk",
@@ -207,11 +208,9 @@ export default function BusinessPortal() {
   }, []);
   const refreshSales = useCallback(async () => {
     if (!supabase) return;
-    const { data, error } = await supabase
-      .from("business_sales")
-      .select("id,receipt_number,total,currency_code,status,created_at")
-      .order("created_at", { ascending: false })
-      .limit(100);
+    const { data, error } = await supabase.rpc("get_business_sales", {
+      p_limit: 100,
+    });
     if (error) throw error;
     setSales((data ?? []) as Sale[]);
   }, []);
@@ -240,24 +239,33 @@ export default function BusinessPortal() {
   useEffect(() => {
     if (!staff || !supabase) return;
     setAuthError("");
+    let active = true;
     const run = async () => {
       try {
         if (location === "/business") await refreshDashboard();
-        if (location === "/business/inventory")
+        if (location === "/business/inventory") {
           await refreshProducts(showArchived);
+          await refreshDashboard();
+        }
         if (location === "/business/sales") {
-          await refreshProducts();
-          await refreshSales();
+          await Promise.all([refreshProducts(), refreshSales(), refreshDashboard()]);
         }
         if (location === "/business/analytics") {
           await Promise.all([refreshAnalytics(), refreshProducts()]);
         }
         if (location === "/business/users") await refreshUsers();
       } catch (e) {
-        setAuthError(errorText(e));
+        if (active) setAuthError(errorText(e));
       }
     };
     void run();
+    const autoRefresh = ["/business", "/business/inventory", "/business/sales"].includes(location)
+      ? window.setInterval(() => void run(), 15_000)
+      : undefined;
+    return () => {
+      active = false;
+      if (autoRefresh !== undefined) window.clearInterval(autoRefresh);
+    };
   }, [
     location,
     staff,
@@ -857,7 +865,7 @@ function Overview({
     {
       label: "Sales revenue",
       value: money(dashboard.revenue ?? 0),
-      sub: `${dashboard.sales_count ?? 0} completed sales`,
+      sub: `${dashboard.sales_count ?? 0} recorded staff and demo sales`,
       icon: BarChart3,
     },
   ];
@@ -914,7 +922,7 @@ function Overview({
           <SectionHeading
             eyebrow="Latest activity"
             title="Recent transactions"
-            body="Completed employee sales."
+            body="Staff sales and storefront demo orders."
           />
           <div className="business-list">
             {(dashboard.recent_sales ?? []).length ? (
@@ -925,14 +933,16 @@ function Overview({
                   </span>
                   <div>
                     <strong>{s.receipt_number}</strong>
-                    <small>{new Date(s.created_at).toLocaleString()}</small>
+                    <small>
+                      {s.source === "storefront" ? "Storefront demo order" : "Staff sale"} · {new Date(s.created_at).toLocaleString()}
+                    </small>
                   </div>
                   <b>{money(s.total, s.currency_code)}</b>
                 </div>
               ))
             ) : (
               <p className="business-muted">
-                No business sales have been recorded.
+                No staff sales or demo orders have been recorded.
               </p>
             )}
           </div>
@@ -942,7 +952,7 @@ function Overview({
         <SectionHeading
           eyebrow="Sales performance"
           title="Recent transaction totals"
-          body="Latest six sales, shown oldest to newest."
+          body="Latest staff sales and storefront demo orders, shown oldest to newest."
         />
         <div className="business-chart__canvas">
           {chartRows.length ? (
@@ -1325,13 +1335,14 @@ function Sales({
         <SectionHeading
           eyebrow="Audit trail"
           title="Recent sales"
-          body="Latest 100 completed and voided transactions."
+          body="Latest 100 staff sales and non-cancelled storefront demo orders."
         />
         <div className="business-table-wrap">
           <table className="business-table">
             <thead>
               <tr>
                 <th>Receipt</th>
+                <th>Source</th>
                 <th>Date &amp; time</th>
                 <th>Status</th>
                 <th>Total</th>
@@ -1343,6 +1354,7 @@ function Sales({
                   <td>
                     <strong>{s.receipt_number}</strong>
                   </td>
+                  <td>{s.source === "storefront" ? "Storefront demo" : "Staff sale"}</td>
                   <td>{new Date(s.created_at).toLocaleString()}</td>
                   <td>
                     <span className="business-status">{s.status}</span>
