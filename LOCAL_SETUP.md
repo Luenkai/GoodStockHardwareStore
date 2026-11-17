@@ -21,8 +21,9 @@ The browser uses `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`. Server
 ## Supabase schema and roles
 
 1. Apply `supabase/schema.sql` in the Supabase SQL Editor. Apply `supabase/catalog_expansion.sql` when using its curated demo products.
-2. Apply `supabase/business-app.sql`. This creates the business sales/model tables, shared inventory columns, security policies and role-checked database functions.
-3. Create an account at `/account`. To bootstrap the first admin, run the SQL below in the Supabase SQL Editor after replacing the example address with the account’s sign-in email:
+2. Apply `supabase/business-app.sql`. This creates the business sales/model tables, shared inventory columns, security policies and role-checked database functions, including safe product archive/restore.
+3. If the project already applied an earlier version of `business-app.sql`, apply `supabase/archive_business_products.sql` to add the admin-only archive/restore RPC. It is additive and safe to rerun; new installs already include it in `business-app.sql`.
+4. Create an account at `/account`. To bootstrap the first admin, run the SQL below in the Supabase SQL Editor after replacing the example address with the account’s sign-in email:
 
    ```sql
    insert into public.business_staff (user_id, role)
@@ -31,7 +32,7 @@ The browser uses `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`. Server
    on conflict (user_id) do update set role = excluded.role, updated_at = now();
    ```
 
-4. Sign in at `/account`, open `/business`, and add existing Supabase accounts with their business role through **User management**. Users must have registered before they can receive a staff role.
+5. Sign in at `/account`, open `/business`, and add existing Supabase accounts with their business role through **User management**. Users must have registered before they can receive a staff role.
 
 The available roles are inventory clerk, sales personnel, admin and instructor. Supabase RLS and checked RPC functions enforce access in the database; hiding a menu item is not the security boundary. No service-role key is needed or safe in the browser.
 

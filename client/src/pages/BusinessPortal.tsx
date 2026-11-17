@@ -130,6 +130,7 @@ export default function BusinessPortal() {
   const [datasetPage, setDatasetPage] = useState(0);
   const [staffRows, setStaffRows] = useState<any[]>([]);
   const [showProductForm, setShowProductForm] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const [cart, setCart] = useState<Record<string, number>>({});
   const [forecast, setForecast] = useState<any[]>([]);
   const [analyticsInput, setAnalyticsInput] = useState({
@@ -192,14 +193,14 @@ export default function BusinessPortal() {
     if (error) throw error;
     setDashboard(data);
   }, [staff]);
-  const refreshProducts = useCallback(async () => {
+  const refreshProducts = useCallback(async (archived = false) => {
     if (!supabase) return;
     const { data, error } = await supabase
       .from("products")
       .select(
         "id,sku,title,handle,product_type,price,currency_code,inventory,reorder_level,is_active"
       )
-      .eq("is_active", true)
+      .eq("is_active", !archived)
       .order("title");
     if (error) throw error;
     setProducts((data ?? []) as Product[]);
@@ -242,7 +243,8 @@ export default function BusinessPortal() {
     const run = async () => {
       try {
         if (location === "/business") await refreshDashboard();
-        if (location === "/business/inventory") await refreshProducts();
+        if (location === "/business/inventory")
+          await refreshProducts(showArchived);
         if (location === "/business/sales") {
           await refreshProducts();
           await refreshSales();
@@ -259,6 +261,7 @@ export default function BusinessPortal() {
   }, [
     location,
     staff,
+    showArchived,
     refreshDashboard,
     refreshProducts,
     refreshSales,
@@ -412,21 +415,19 @@ export default function BusinessPortal() {
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/(^-|-$)/g, "");
-      const { error } = await supabase
-        .from("products")
-        .insert({
-          sku: inventoryForm.sku.trim(),
-          title: inventoryForm.title.trim(),
-          handle,
-          description: "",
-          product_type: inventoryForm.product_type,
-          vendor: "Goodstock Hardware",
-          price: Number(inventoryForm.price),
-          currency_code: "PHP",
-          inventory: Number(inventoryForm.inventory),
-          reorder_level: Number(inventoryForm.reorder_level),
-          is_active: true,
-        });
+      const { error } = await supabase.from("products").insert({
+        sku: inventoryForm.sku.trim(),
+        title: inventoryForm.title.trim(),
+        handle,
+        description: "",
+        product_type: inventoryForm.product_type,
+        vendor: "Goodstock Hardware",
+        price: Number(inventoryForm.price),
+        currency_code: "PHP",
+        inventory: Number(inventoryForm.inventory),
+        reorder_level: Number(inventoryForm.reorder_level),
+        is_active: true,
+      });
       if (error) throw error;
       setShowProductForm(false);
       setInventoryForm({
@@ -456,6 +457,32 @@ export default function BusinessPortal() {
     else {
       await Promise.all([refreshProducts(), refreshDashboard()]);
       setNotice(`${product.title} stock updated to ${next}.`);
+    }
+  };
+  const setProductActive = async (product: Product, isActive: boolean) => {
+    if (!supabase || staff?.role !== "admin") return;
+    setBusy(true);
+    setNotice("");
+    try {
+      const { data, error } = await supabase.rpc(
+        "set_business_product_active",
+        {
+          p_product_id: product.id,
+          p_is_active: isActive,
+        }
+      );
+      if (error) throw error;
+      if (!data) throw new Error("The product could not be found.");
+      await Promise.all([refreshProducts(showArchived), refreshDashboard()]);
+      setNotice(
+        isActive
+          ? `${product.title} restored to the storefront.`
+          : `${product.title} archived. Existing order records are preserved.`
+      );
+    } catch (e) {
+      setNotice(errorText(e));
+    } finally {
+      setBusy(false);
     }
   };
   const assignRole = async (event: FormEvent) => {
@@ -682,12 +709,19 @@ export default function BusinessPortal() {
               canEdit={
                 staff.role === "inventory_clerk" || staff.role === "admin"
               }
+              canArchive={staff.role === "admin"}
+              showArchived={showArchived}
+              setShowArchived={value => {
+                setShowProductForm(false);
+                setShowArchived(value);
+              }}
               showForm={showProductForm}
               setShowForm={setShowProductForm}
               form={inventoryForm}
               setForm={setInventoryForm}
               onSubmit={addProduct}
               onAdjust={adjustInventory}
+              onSetActive={setProductActive}
               busy={busy}
             />
           )}
@@ -970,32 +1004,45 @@ function Overview({
 function Inventory({
   products,
   canEdit,
+  canArchive,
+  showArchived,
+  setShowArchived,
   showForm,
   setShowForm,
   form,
   setForm,
   onSubmit,
   onAdjust,
+  onSetActive,
   busy,
 }: {
   products: Product[];
   canEdit: boolean;
+  canArchive: boolean;
+  showArchived: boolean;
+  setShowArchived: (value: boolean) => void;
   showForm: boolean;
   setShowForm: (v: boolean) => void;
   form: any;
   setForm: (v: any) => void;
   onSubmit: (e: FormEvent) => void;
   onAdjust: (p: Product, d: number) => void;
+  onSetActive: (p: Product, isActive: boolean) => void;
   busy: boolean;
 }) {
   return (
     <>
       <SectionHeading
         eyebrow="Product catalog"
-        title="Manage shared stock"
-        body="Changes here update availability in the customer storefront."
+        title={showArchived ? "Archived products" : "Manage shared stock"}
+        body={
+          showArchived
+            ? "Archived products are hidden from the storefront. Restore one to make it available again."
+            : "Changes here update availability in the customer storefront."
+        }
         action={
-          canEdit && (
+          canEdit &&
+          !showArchived && (
             <button
               className="button button--accent"
               onClick={() => setShowForm(!showForm)}
@@ -1006,7 +1053,24 @@ function Inventory({
           )
         }
       />
-      {showForm && (
+      {canArchive && (
+        <div className="business-archive-toolbar">
+          <span>
+            {showArchived
+              ? "Viewing archived products"
+              : "Need to remove a product from the shop? Archive it safely."}
+          </span>
+          <button
+            type="button"
+            className="business-archive-toggle"
+            aria-pressed={showArchived}
+            onClick={() => setShowArchived(!showArchived)}
+          >
+            {showArchived ? "View active products" : "View archived products"}
+          </button>
+        </div>
+      )}
+      {showForm && !showArchived && (
         <form className="business-form business-card" onSubmit={onSubmit}>
           <label>
             SKU
@@ -1089,7 +1153,8 @@ function Inventory({
               <th>Price</th>
               <th>In stock</th>
               <th>Reorder at</th>
-              {canEdit && <th>Stock adjustment</th>}
+              {canEdit && !showArchived && <th>Stock adjustment</th>}
+              {canArchive && <th>{showArchived ? "Restore" : "Catalog"}</th>}
             </tr>
           </thead>
           <tbody>
@@ -1113,7 +1178,7 @@ function Inventory({
                   </span>
                 </td>
                 <td>{p.reorder_level}</td>
-                {canEdit && (
+                {canEdit && !showArchived && (
                   <td>
                     <div className="business-adjust">
                       <button
@@ -1132,12 +1197,28 @@ function Inventory({
                     </div>
                   </td>
                 )}
+                {canArchive && (
+                  <td>
+                    <button
+                      type="button"
+                      className={`business-product-state-action${showArchived ? " is-restore" : ""}`}
+                      onClick={() => onSetActive(p, showArchived)}
+                      disabled={busy}
+                    >
+                      {showArchived ? "Restore" : "Archive"}
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
         </table>
         {!products.length && (
-          <p className="business-muted">No active products were found.</p>
+          <p className="business-muted">
+            {showArchived
+              ? "No archived products were found."
+              : "No active products were found."}
+          </p>
         )}
       </div>
     </>

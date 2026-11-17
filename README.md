@@ -4,8 +4,8 @@ Goodstock combines the existing customer-facing hardware storefront with a separ
 
 ## Application areas
 
-- **Storefront:** home, product search/filter/sort, product details, cart, account sign-in and demo order history.
-- **Business workspace:** dashboard cards and recent-sales chart; shared inventory management; sales transactions; role management; and demand/sales predictions.
+- **Storefront:** home, product search/filter/sort, product details, cart, account sign-in, demo order history, and cart/recent-order-based product suggestions.
+- **Business workspace:** dashboard cards and recent-sales chart; shared inventory management with reversible product archiving; sales transactions; role management; and demand/sales predictions.
 - **Roles:** `inventory_clerk` manages inventory; `sales_personnel` records sales; `admin` has dashboard, inventory, sales, staff-role and prediction access; `instructor` has dashboard and knowledge-analysis access, including model training, metrics, and dataset preview.
 - **Knowledge analysis:** Simple Linear Regression and Random Forest Regression. Instructors can train and version model artifacts in Supabase. Administrators can load saved artifacts and see predictions, but not the evaluation-metric or dataset screens.
 
@@ -15,8 +15,9 @@ Both application areas use the existing Supabase project and browser authenticat
 
 1. Configure `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_URL`, and `SUPABASE_PUBLISHABLE_KEY` as described in `.env.example`.
 2. Apply `supabase/schema.sql` to a new Supabase project. Apply `supabase/catalog_expansion.sql` if using the curated preview catalog.
-3. Apply `supabase/business-app.sql` to add staff roles, shared inventory metadata, atomic business sales, model storage and role-checked RPCs.
-4. Create the first admin through the existing Supabase Auth sign-up flow at `/account`. Then, in Supabase SQL Editor, replace the example email below with that account’s email and run it once:
+3. Apply `supabase/business-app.sql` to add staff roles, shared inventory metadata, atomic business sales, model storage and role-checked RPCs, including the reversible product archive function.
+4. Existing projects that already applied an earlier `business-app.sql` should apply `supabase/archive_business_products.sql` to add the archive/restore RPC. The additive migration is safe to rerun; fresh installs already receive the function from the full business schema.
+5. Create the first admin through the existing Supabase Auth sign-up flow at `/account`. Then, in Supabase SQL Editor, replace the example email below with that account’s email and run it once:
 
    ```sql
    insert into public.business_staff (user_id, role)
@@ -25,7 +26,7 @@ Both application areas use the existing Supabase project and browser authenticat
    on conflict (user_id) do update set role = excluded.role, updated_at = now();
    ```
 
-5. Sign in at `/account`, open `/business`, and use **User management** to assign roles to other existing Supabase accounts. A staff member must first register through the current account screen.
+6. Sign in at `/account`, open `/business`, and use **User management** to assign roles to other existing Supabase accounts. A staff member must first register through the current account screen.
 
 Never expose a Supabase service-role key in browser code. The business portal uses the publishable key and relies on database RLS and checked RPC functions for authorization. The initial administrator bootstrap is intentionally a manual SQL operation so the migration cannot silently grant privileged access to an account.
 

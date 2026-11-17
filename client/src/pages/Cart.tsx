@@ -4,9 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
 import { toast } from "sonner";
 import StoreLayout from "@/components/store/StoreLayout";
+import ProductCard from "@/components/store/ProductCard";
 import { clearCart, removeFromCart, updateCartQuantity, useDemoCart } from "@/lib/cart";
-import { productImage, formatMoney } from "@/lib/storefront";
+import { productImage, formatMoney, type StoreProduct } from "@/lib/storefront";
+import { recommendProducts } from "@/lib/recommendations";
 import { supabase } from "@/lib/supabase";
+import { trpc } from "@/lib/trpc";
 import type { User } from "@supabase/supabase-js";
 
 export default function Cart() {
@@ -15,6 +18,9 @@ export default function Cart() {
   const [checkingOut, setCheckingOut] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [recentProductIds, setRecentProductIds] = useState<string[]>([]);
+  const catalogQuery = trpc.storefront.products.useQuery(undefined, { retry: 1, staleTime: 30_000 });
+  const catalog = (catalogQuery.data ?? []) as StoreProduct[];
 
   useEffect(() => {
     if (!supabase) return;
@@ -23,8 +29,47 @@ export default function Cart() {
     return () => data.subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    const client = supabase;
+    if (!client || !user) {
+      setRecentProductIds([]);
+      return;
+    }
+    let active = true;
+    const loadRecentPurchases = async () => {
+      const { data: orders, error: ordersError } = await client
+        .from("orders")
+        .select("id")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(10);
+      if (!active) return;
+      if (ordersError || !orders?.length) {
+        setRecentProductIds([]);
+        return;
+      }
+      const { data: orderItems, error: itemsError } = await client
+        .from("order_items")
+        .select("product_id")
+        .in("order_id", orders.map(order => order.id))
+        .limit(50);
+      if (!active) return;
+      setRecentProductIds(
+        itemsError
+          ? []
+          : (orderItems ?? []).map(item => item.product_id).filter((id): id is string => Boolean(id)),
+      );
+    };
+    void loadRecentPurchases();
+    return () => { active = false; };
+  }, [user]);
+
   const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
   const subtotal = useMemo(() => items.reduce((sum, item) => sum + Number(item.product.priceRange.minVariantPrice.amount) * item.quantity, 0), [items]);
+  const recommendations = useMemo(
+    () => recommendProducts(catalog, items, recentProductIds),
+    [catalog, items, recentProductIds],
+  );
 
   const checkout = async () => {
     if (!supabase) { setMessage("Supabase is not configured yet."); return; }
@@ -36,7 +81,10 @@ export default function Cart() {
     const { error: itemError } = await supabase.from("order_items").insert(items.map(item => ({ order_id: order.id, product_id: item.product.id, title: item.product.title, quantity: item.quantity, unit_price: item.product.priceRange.minVariantPrice.amount, image_url: productImage(item.product).url })));
     setCheckingOut(false);
     if (itemError) { setMessage(itemError.message); return; }
-    clearCart(); setOrderId(order.id); toast.success("Demo order created.");
+    const purchasedIds = items.map(item => item.product.id);
+    clearCart();
+    setRecentProductIds(current => [...purchasedIds, ...current]);
+    setOrderId(order.id); toast.success("Demo order created.");
   };
 
   return (
@@ -54,6 +102,17 @@ export default function Cart() {
             </motion.article>; })}</AnimatePresence></section>
             <aside className="cart-summary" aria-labelledby="summary-title"><h2 id="summary-title">Demo order summary</h2><div className="summary-row"><span>Subtotal</span><strong className="price">{formatMoney({ amount: subtotal.toFixed(2), currencyCode: items[0].product.priceRange.minVariantPrice.currencyCode })}</strong></div><p>No payment is collected. This creates a project order record in Supabase.</p>{message && <p className="account-error" role="alert">{message}</p>}{user ? <button type="button" className="button button--accent button--checkout" onClick={() => void checkout()} disabled={checkingOut}>{checkingOut ? <><LoaderCircle size={18} className="spin" /> Saving order</> : <>Place demo order <ArrowRight size={18} /></>}</button> : <Link className="button button--accent button--checkout" href="/account">Sign in to checkout <ArrowRight size={18} /></Link>}<span className="summary-secure">Free demo checkout powered by Supabase</span></aside>
           </div>
+        )}
+        {recommendations.length > 0 && (
+          <section className="cart-recommendations" aria-labelledby="cart-recommendations-title">
+            <div className="cart-recommendations__heading">
+              <div><p className="eyebrow">Picked for your project</p><h2 id="cart-recommendations-title">You might need these next.</h2></div>
+              <p>Suggestions match product categories from your cart or recent orders when available.</p>
+            </div>
+            <div className="product-grid cart-recommendations__grid">
+              {recommendations.map((product, index) => <ProductCard key={product.id} product={product} index={index} />)}
+            </div>
+          </section>
         )}
       </main>
     </StoreLayout>

@@ -14,14 +14,17 @@
 - [x] Held-out MAE, RMSE and R² metrics with descriptions; instructor-only model/dataset preview and CSV download.
 - [x] Deterministic synthetic dataset in `data/demand-sales-1200.csv` with 1,200 monthly product rows, demand, price/promotion/seasonality features and sales revenue.
 - [x] Added tests for dataset row count, model reproducibility, metrics and prediction values.
+- [x] Admin-only profile shortcut to switch directly from the account page into business management.
+- [x] Cart/recent-order product suggestions rank available active products, exclude cart and recent purchases, and read only the signed-in user's orders.
+- [x] Admin-only reversible product archive and restore; archived products are hidden from the storefront and historical order references are retained.
 
 ## Setup or verification required
 
-- [x] Provide an admin-only switch from the profile/account page into business management.
-- [ ] Apply `supabase/business-app.sql` to the target Supabase project after `supabase/schema.sql`.
-- [ ] Bootstrap the first admin account with the SQL instructions in `README.md` / `LOCAL_SETUP.md`.
+- [x] Apply and verify the product archive/restore RPC migration in the connected Supabase project.
+- [x] Apply `supabase/business-app.sql` to the target Supabase project after `supabase/schema.sql`.
+- [x] Bootstrap the first admin account with the SQL instructions in `README.md` / `LOCAL_SETUP.md`.
 - [ ] Validate Supabase Auth redirect URLs, project settings and RLS policies against the deployment project.
-- [ ] Test the app against the actual Supabase project with each of the four staff roles; this sandbox has no project credentials/database configured.
+- [ ] Walk through the deployed website with each staff role and verify login redirects and UI behavior.
 
 ## Remaining before real commerce
 
