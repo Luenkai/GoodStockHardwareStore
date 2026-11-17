@@ -64,6 +64,11 @@ describe("recommendProducts", () => {
     expect(results.map(item => item.id)).toEqual(["bolts", "wrench"]);
   });
 
+  it("uses the shopper's recent purchase category when the cart is empty", () => {
+    const results = recommendProducts(catalog, [], [pliers.id], 4);
+    expect(results.map(item => item.id)).toEqual(["wrench"]);
+  });
+
   it("supports cart-only recommendations for signed-out shoppers", () => {
     const results = recommendProducts(catalog, [cartItem(tape)], [], 4);
     expect(results.map(item => item.id)).toEqual(["tester"]);

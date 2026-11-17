@@ -21,8 +21,8 @@ The browser uses `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`. Server
 ## Supabase schema and roles
 
 1. Apply `supabase/schema.sql` in the Supabase SQL Editor. Apply `supabase/catalog_expansion.sql` when using its curated demo products.
-2. Apply `supabase/business-app.sql`. This creates the business sales/model tables, shared inventory columns, security policies and role-checked database functions, including safe product archive/restore.
-3. If the project already applied an earlier version of `business-app.sql`, apply `supabase/archive_business_products.sql` to add the admin-only archive/restore RPC. It is additive and safe to rerun; new installs already include it in `business-app.sql`.
+2. Apply `supabase/business-app.sql`. This creates the business sales/model tables, shared inventory columns, security policies and role-checked database functions, including atomic storefront demo checkout, unified dashboard/sales reporting, and safe product archive/restore.
+3. If the project already applied an earlier version of `business-app.sql`, apply `supabase/archive_business_products.sql` if archive/restore is not installed, then apply `supabase/storefront_demo_sales.sql` to add atomic customer demo checkout and unified staff/storefront reporting. The migrations are additive and safe to rerun; new installs already include these functions in `business-app.sql`.
 4. Create an account at `/account`. To bootstrap the first admin, run the SQL below in the Supabase SQL Editor after replacing the example address with the account’s sign-in email:
 
    ```sql
@@ -51,7 +51,7 @@ pnpm start
 
 The production build still includes the existing platform config script warning and can emit a large-chunk warning depending on build tooling. Business portal JavaScript is lazy-loaded separately so the storefront does not need to load the staff analytics code and CSV on its initial screen.
 
-Both storefront checkout and business transactions are demo flows. Storefront orders do not collect payment details. Business transactions atomically validate stock and create internal receipts but do not collect payment. Do not accept real orders until payment processing, fulfillment, pricing, production access-control validation, inventory reconciliation, shipping/tax rules and operational support are in place.
+Both storefront checkout and business transactions are demo flows. Storefront demo orders validate current database prices and stock, then atomically save the order, decrement inventory and appear in staff sales reporting; no payment details are collected. Business transactions also atomically validate stock and create internal receipts without collecting payment. Do not accept real orders until payment processing, fulfillment, pricing, production access-control validation, inventory reconciliation, shipping/tax rules and operational support are in place.
 
 ## Netlify
 
