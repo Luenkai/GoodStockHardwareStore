@@ -23,8 +23,8 @@
       "demoPrice": "149.00",
       "demoInventory": 12,
       "currency": "PHP",
-      "imageFile": "client/public/images/fasteners-illustration.svg",
-      "imageAlt": "Generic illustration of bolts and washers; not an exact product photo",
+      "imageFile": "client/public/images/m12-washer.webp",
+      "imageAlt": "Illustrative photo of assorted washers; not verified as the KONOE M12 SUS304 500-pack.",
       "handle": "m12-stainless-steel-flat-washer-500-pack"
     },
     {
@@ -39,8 +39,8 @@
       "demoPrice": "399.00",
       "demoInventory": 8,
       "currency": "PHP",
-      "imageFile": "client/public/images/tools-illustration.svg",
-      "imageAlt": "Generic illustration of hand tools; not an exact product photo",
+      "imageFile": "client/public/images/torx-screwdriver-set.webp",
+      "imageAlt": "Illustrative Torx screwdriver and bit set; not verified as Fujiwara EPS-500.",
       "handle": "fujiwara-eps-500-torx-screwdriver-set"
     },
     {
@@ -55,8 +55,8 @@
       "demoPrice": "179.00",
       "demoInventory": 15,
       "currency": "PHP",
-      "imageFile": "client/public/images/tools-illustration.svg",
-      "imageAlt": "Generic illustration of hand tools; not an exact product photo",
+      "imageFile": "client/public/images/phillips-screwdriver.webp",
+      "imageAlt": "Illustrative FACOM Phillips screwdriver; not the ESCO EA560LA-3 and its size is unverified.",
       "handle": "esco-ea560la-3-phillips-screwdriver"
     },
     {
@@ -71,8 +71,8 @@
       "demoPrice": "399.00",
       "demoInventory": 10,
       "currency": "PHP",
-      "imageFile": "client/public/images/tools-illustration.svg",
-      "imageAlt": "Generic illustration of hand tools; not an exact product photo",
+      "imageFile": "client/public/images/tape-measure.webp",
+      "imageAlt": "Illustrative tape measure; not verified as MURATEC KDS GGR2575.",
       "handle": "muratec-kds-ggr2575-tape-measure-7-5m"
     },
     {
@@ -87,8 +87,8 @@
       "demoPrice": "299.00",
       "demoInventory": 8,
       "currency": "PHP",
-      "imageFile": "client/public/images/tools-illustration.svg",
-      "imageAlt": "Generic illustration of hand tools; not an exact product photo",
+      "imageFile": "client/public/images/needle-nose-pliers.webp",
+      "imageAlt": "Illustrative needle-nose pliers; brand and 125 mm size are not verified.",
       "handle": "three-peaks-giken-lr-125s-needle-nose-pliers"
     },
     {
@@ -103,8 +103,8 @@
       "demoPrice": "199.00",
       "demoInventory": 12,
       "currency": "PHP",
-      "imageFile": "client/public/images/tools-illustration.svg",
-      "imageAlt": "Generic illustration of hand tools; not an exact product photo",
+      "imageFile": "client/public/images/combination-wrenches.webp",
+      "imageAlt": "Illustrative combination wrenches; not verified as the KYOTO TOOL 7 mm model.",
       "handle": "kyoto-tool-ms2-07-combination-wrench-7mm"
     },
     {
@@ -119,8 +119,8 @@
       "demoPrice": "249.00",
       "demoInventory": 10,
       "currency": "PHP",
-      "imageFile": "client/public/images/electrical-illustration.svg",
-      "imageAlt": "Generic illustration of electrical components; not an exact product photo",
+      "imageFile": "client/public/images/polyimide-tape.webp",
+      "imageAlt": "Illustrative polyimide tape; not verified as 3M PIA220.",
       "handle": "3m-pia220-polyimide-electrical-insulation-tape"
     },
     {
@@ -135,8 +135,8 @@
       "demoPrice": "39.00",
       "demoInventory": 30,
       "currency": "PHP",
-      "imageFile": "client/public/images/electrical-illustration.svg",
-      "imageAlt": "Generic illustration of electrical components; not an exact product photo",
+      "imageFile": "client/public/images/glass-fuse.webp",
+      "imageAlt": "Illustrative glass tube fuse; brand and electrical rating are not verified.",
       "handle": "fuji-terminal-industry-glass-tube-fuse-250v-2a"
     },
     {
@@ -151,8 +151,8 @@
       "demoPrice": "349.00",
       "demoInventory": 8,
       "currency": "PHP",
-      "imageFile": "client/public/images/electrical-illustration.svg",
-      "imageAlt": "Generic illustration of electrical components; not an exact product photo",
+      "imageFile": "client/public/images/omron-relay.webp",
+      "imageAlt": "Illustrative photo of different Omron relay models; not the MY2 AC 200/220 model.",
       "handle": "omron-my2-mini-power-relay-ac-200-220v"
     },
     {
@@ -167,8 +167,8 @@
       "demoPrice": "499.00",
       "demoInventory": 6,
       "currency": "PHP",
-      "imageFile": "client/public/images/electrical-illustration.svg",
-      "imageAlt": "Generic illustration of electrical components; not an exact product photo",
+      "imageFile": "client/public/images/miniature-circuit-breaker.webp",
+      "imageAlt": "Illustrative Entek miniature circuit breakers; not IDEC NRF11010A.",
       "handle": "idec-nrf11010a-circuit-breaker-10a"
     }
   ]

@@ -13,7 +13,7 @@ Pack: 500 pieces
 Source model: WSUS0012
 Demo listing; verify pack and specifications before real sale.$qte$,
     'Fasteners', 'KONOE', 149.00, 'PHP', 12,
-    '/images/fasteners-illustration.svg', 'Generic illustration of bolts and washers; not an exact product photo', true
+    '/images/m12-washer.webp', 'Illustrative photo of assorted washers; not verified as the KONOE M12 SUS304 500-pack.', true
   ),
   (
     'Fujiwara Sangyo EPS-500 Precision Torx Screwdriver Set',
@@ -24,7 +24,7 @@ Tip length: 25 mm each
 Source model: EPS-500
 Demo listing; verify set contents before real sale.$qte$,
     'Tools', 'Fujiwara Sangyo', 399.00, 'PHP', 8,
-    '/images/tools-illustration.svg', 'Generic illustration of hand tools; not an exact product photo', true
+    '/images/torx-screwdriver-set.webp', 'Illustrative Torx screwdriver and bit set; not verified as Fujiwara EPS-500.', true
   ),
   (
     'ESCO EA560LA-3 Phillips Screwdriver, #3 × 150 mm',
@@ -36,7 +36,7 @@ Shaft diameter: 8 mm per source listing
 Source model: EA560LA-3
 Demo listing; verify specifications before real sale.$qte$,
     'Tools', 'ESCO', 179.00, 'PHP', 15,
-    '/images/tools-illustration.svg', 'Generic illustration of hand tools; not an exact product photo', true
+    '/images/phillips-screwdriver.webp', 'Illustrative FACOM Phillips screwdriver; not the ESCO EA560LA-3 and its size is unverified.', true
   ),
   (
     'MURATEC KDS GGR2575 Tape Measure, 7.5 m × 25 mm',
@@ -48,7 +48,7 @@ Scale: JIS Class 1, double-sided metric
 Features: lock, belt hook, and shock absorber
 Demo listing; verify specifications before real sale.$qte$,
     'Tools', 'MURATEC KDS', 399.00, 'PHP', 10,
-    '/images/tools-illustration.svg', 'Generic illustration of hand tools; not an exact product photo', true
+    '/images/tape-measure.webp', 'Illustrative tape measure; not verified as MURATEC KDS GGR2575.', true
   ),
   (
     'THREE PEAKS GIKEN LR-125S Needle-Nose Pliers, 125 mm',
@@ -60,7 +60,7 @@ Cut capacity per source listing: steel wire 1.5 mm; copper wire 2.6 mm
 Source model: LR-125S
 Demo listing; verify specifications before real sale.$qte$,
     'Tools', 'THREE PEAKS GIKEN', 299.00, 'PHP', 8,
-    '/images/tools-illustration.svg', 'Generic illustration of hand tools; not an exact product photo', true
+    '/images/needle-nose-pliers.webp', 'Illustrative needle-nose pliers; brand and 125 mm size are not verified.', true
   ),
   (
     'KYOTO TOOL MS2-07 Combination Wrench, 7 mm',
@@ -72,7 +72,7 @@ Weight: 20 g
 Source model: MS2-07
 Demo listing; verify specifications before real sale.$qte$,
     'Tools', 'KYOTO TOOL', 199.00, 'PHP', 12,
-    '/images/tools-illustration.svg', 'Generic illustration of hand tools; not an exact product photo', true
+    '/images/combination-wrenches.webp', 'Illustrative combination wrenches; not verified as the KYOTO TOOL 7 mm model.', true
   ),
   (
     '3M PIA220 Polyimide Electrical Insulation Tape, 9 mm × 33 m',
@@ -84,7 +84,7 @@ Thickness: 0.05 mm
 Temperature rating: 220 °C per source listing; verify manufacturer datasheet
 Demo listing; confirm specifications and electrical suitability before real sale.$qte$,
     'Power & Electrical', '3M', 249.00, 'PHP', 10,
-    '/images/electrical-illustration.svg', 'Generic illustration of electrical components; not an exact product photo', true
+    '/images/polyimide-tape.webp', 'Illustrative polyimide tape; not verified as 3M PIA220.', true
   ),
   (
     'FUJI TERMINAL INDUSTRY Glass Tube Fuse, 250 V, 2 A',
@@ -96,7 +96,7 @@ Size: 6.4 x 30 mm
 Contacts: brass, nickel-plated per source listing
 Demo listing; verify electrical specifications and compatibility before use.$qte$,
     'Power & Electrical', 'FUJI TERMINAL INDUSTRY', 39.00, 'PHP', 30,
-    '/images/electrical-illustration.svg', 'Generic illustration of electrical components; not an exact product photo', true
+    '/images/glass-fuse.webp', 'Illustrative glass tube fuse; brand and electrical rating are not verified.', true
   ),
   (
     'OMRON MY2 Mini Power Relay, AC 200/220 V',
@@ -107,7 +107,7 @@ Series: MY2 standard type
 Contact material: gold plating and silver per source listing
 Demo listing; verify wiring, datasheet, and compatibility before use.$qte$,
     'Power & Electrical', 'OMRON', 349.00, 'PHP', 8,
-    '/images/electrical-illustration.svg', 'Generic illustration of electrical components; not an exact product photo', true
+    '/images/omron-relay.webp', 'Illustrative photo of different Omron relay models; not the MY2 AC 200/220 model.', true
   ),
   (
     'IDEC NRF11010A Circuit Breaker, 10 A',
@@ -118,6 +118,6 @@ Terminal type: model 250 per source listing
 Source model: NRF11010A
 Demo listing; verify electrical specifications and compatibility before use.$qte$,
     'Power & Electrical', 'IDEC', 499.00, 'PHP', 6,
-    '/images/electrical-illustration.svg', 'Generic illustration of electrical components; not an exact product photo', true
+    '/images/miniature-circuit-breaker.webp', 'Illustrative Entek miniature circuit breakers; not IDEC NRF11010A.', true
   )
 on conflict (handle) do nothing;

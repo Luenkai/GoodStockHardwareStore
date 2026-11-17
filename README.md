@@ -15,6 +15,7 @@ Both application areas use the existing Supabase project and browser authenticat
 
 1. Configure `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_URL`, and `SUPABASE_PUBLISHABLE_KEY` as described in `.env.example`.
 2. Apply `supabase/schema.sql` to a new Supabase project. Apply `supabase/catalog_expansion.sql` if using the curated preview catalog.
+   For existing catalog rows, run `supabase/update_product_images.sql` after the product rows exist; it changes only `image_url` and `image_alt` for the ten curated listings. Image sources, licenses, attributions, and product-match caveats are recorded in `data/product-image-credits.md`.
 3. Apply `supabase/business-app.sql` to add staff roles, shared inventory metadata, atomic business sales, model storage and role-checked RPCs, including the reversible product archive function.
 4. Existing projects that already applied an earlier `business-app.sql` should apply `supabase/archive_business_products.sql` to add the archive/restore RPC. The additive migration is safe to rerun; fresh installs already receive the function from the full business schema.
 5. Create the first admin through the existing Supabase Auth sign-up flow at `/account`. Then, in Supabase SQL Editor, replace the example email below with that account’s email and run it once:
