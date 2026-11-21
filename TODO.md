@@ -25,6 +25,7 @@
 - [x] Bootstrap the first admin account with the SQL instructions in `README.md` / `LOCAL_SETUP.md`.
 - [ ] Validate Supabase Auth redirect URLs, project settings and RLS policies against the deployment project.
 - [ ] Walk through the deployed website with each staff role and verify login redirects and UI behavior.
+- [x] Show valid storefront demo checkouts to sales personnel, admins, and instructors on the business overview with their count, value grouped by currency, and latest six orders; label the amounts as unpaid, keep them separate from completed employee-sale revenue, exclude cancelled or itemless orders, and hide them from inventory clerks.
 
 ## Remaining before real commerce
 

@@ -835,6 +835,22 @@ function Overview({
         </button>
       </div>
     );
+  const canViewSales = staff.role !== "inventory_clerk";
+  const demoValueSummary = (
+    (dashboard.storefront_demo_value_by_currency ?? []) as {
+      currency_code: string;
+      total: number | string;
+    }[]
+  )
+    .map(value => `${money(value.total, value.currency_code)} unpaid`)
+    .join(" · ");
+  const recentDemoOrders = (dashboard.recent_storefront_demo_orders ?? []) as {
+    id: string;
+    status: string;
+    total: number | string;
+    currency_code: string;
+    created_at: string;
+  }[];
   const cards = [
     {
       label: "Active products",
@@ -854,12 +870,22 @@ function Overview({
       sub: "At or below reorder level",
       icon: Warehouse,
     },
-    {
-      label: "Sales revenue",
-      value: money(dashboard.revenue ?? 0),
-      sub: `${dashboard.sales_count ?? 0} completed sales`,
-      icon: BarChart3,
-    },
+    ...(canViewSales
+      ? [
+          {
+            label: "Sales revenue",
+            value: money(dashboard.revenue ?? 0),
+            sub: `${dashboard.sales_count ?? 0} completed employee sales`,
+            icon: BarChart3,
+          },
+          {
+            label: "Storefront demo orders",
+            value: String(dashboard.storefront_demo_order_count ?? 0),
+            sub: demoValueSummary || "Unpaid demo checkouts",
+            icon: ShoppingCart,
+          },
+        ]
+      : []),
   ];
   const chartRows = ((dashboard.recent_sales ?? []) as any[])
     .slice()
@@ -938,11 +964,40 @@ function Overview({
           </div>
         </section>
       </div>
+      {canViewSales && (
+        <section className="business-card">
+          <SectionHeading
+            eyebrow="Storefront activity"
+            title="Recent demo orders"
+            body="Unpaid storefront checkouts; their value is tracked separately from employee sales revenue."
+          />
+          <div className="business-list">
+            {recentDemoOrders.length ? (
+              recentDemoOrders.map(order => (
+                <div className="business-list-row" key={order.id}>
+                  <span className="business-mini-icon">
+                    <ShoppingCart size={16} />
+                  </span>
+                  <div>
+                    <strong>Demo order #{order.id.slice(0, 8).toUpperCase()}</strong>
+                    <small>
+                      {new Date(order.created_at).toLocaleString()} · {order.status}
+                    </small>
+                  </div>
+                  <b>{money(order.total, order.currency_code)}</b>
+                </div>
+              ))
+            ) : (
+              <p className="business-muted">No storefront demo orders yet.</p>
+            )}
+          </div>
+        </section>
+      )}
       <section className="business-card business-chart">
         <SectionHeading
           eyebrow="Sales performance"
           title="Recent transaction totals"
-          body="Latest six sales, shown oldest to newest."
+          body="Latest six completed employee sales, shown oldest to newest."
         />
         <div className="business-chart__canvas">
           {chartRows.length ? (
