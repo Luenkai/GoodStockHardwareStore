@@ -129,7 +129,7 @@ export function ThemeProvider({
       root.style.colorScheme = theme;
       const meta = document.querySelector('meta[name="theme-color"]');
       if (meta) {
-        meta.setAttribute("content", theme === "dark" ? "#141b18" : "#f4f1e9");
+        meta.setAttribute("content", theme === "dark" ? "#0e1311" : "#f6f5f0");
       }
     }
     writeStoredThemePreference(preference);

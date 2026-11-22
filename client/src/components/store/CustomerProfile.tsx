@@ -9,7 +9,6 @@ import {
 } from "react";
 import { LoaderCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import type { User } from "@supabase/supabase-js";
 import { InlineStatus, TextField } from "@/components/store/GoodstockControls";
 import {
   EMPTY_CUSTOMER_ADDRESS,
@@ -20,6 +19,11 @@ import {
   type CustomerProfileFieldKey,
   type CustomerValidationErrors,
 } from "@/lib/accountValidation";
+import {
+  loadCustomerProfileData,
+  saveLocalProfileAndAddress,
+  type CustomerUser,
+} from "@/lib/storeOperations";
 
 export interface CustomerProfileHandle {
   saveChanges: () => Promise<boolean>;
@@ -33,7 +37,11 @@ type SaveFeedback =
   | { kind: "partial_error"; body: string }
   | { kind: "session_expired" };
 
-function isSessionExpiredError(err: { message?: string; code?: string; status?: number } | null): boolean {
+function isSessionExpiredError(err: {
+  message?: string;
+  code?: string;
+  status?: number;
+} | null): boolean {
   if (!err) return false;
   const msg = (err.message ?? "").toLowerCase();
   return (
@@ -49,14 +57,14 @@ function isSessionExpiredError(err: { message?: string; code?: string; status?: 
 const CustomerProfile = forwardRef<
   CustomerProfileHandle,
   {
-    user: User;
-    isSamplePreview?: boolean;
+    user: CustomerUser;
     initialDraft?: {
       name: string;
       phone: string;
       address: CustomerAddressDraft;
     } | null;
     onDirtyChange?: (dirty: boolean) => void;
+    onProfileSaved?: () => void;
     onSessionExpired?: (draft: {
       name: string;
       phone: string;
@@ -66,20 +74,15 @@ const CustomerProfile = forwardRef<
 >(function CustomerProfile(
   {
     user,
-    isSamplePreview = false,
     initialDraft = null,
     onDirtyChange,
+    onProfileSaved,
     onSessionExpired,
   },
   ref,
 ) {
-  const defaultName = String(
-    user.user_metadata?.display_name || user.user_metadata?.full_name || "",
-  );
-  const defaultPhone = String(user.user_metadata?.phone || "");
-
-  const [name, setName] = useState(initialDraft?.name ?? defaultName);
-  const [phone, setPhone] = useState(initialDraft?.phone ?? defaultPhone);
+  const [name, setName] = useState(initialDraft?.name ?? user.displayName);
+  const [phone, setPhone] = useState(initialDraft?.phone ?? user.phone ?? "");
   const [address, setAddress] = useState<CustomerAddressDraft>(
     initialDraft?.address ?? EMPTY_CUSTOMER_ADDRESS,
   );
@@ -88,15 +91,17 @@ const CustomerProfile = forwardRef<
     phone: string;
     address: CustomerAddressDraft;
   }>({
-    name: defaultName,
-    phone: defaultPhone,
+    name: user.displayName,
+    phone: user.phone ?? "",
     address: EMPTY_CUSTOMER_ADDRESS,
   });
 
   const [errors, setErrors] = useState<CustomerValidationErrors>({});
   const [feedback, setFeedback] = useState<SaveFeedback>({ kind: "idle" });
 
-  const fieldRefs = useRef<Partial<Record<CustomerProfileFieldKey, HTMLInputElement | null>>>({});
+  const fieldRefs = useRef<
+    Partial<Record<CustomerProfileFieldKey, HTMLInputElement | null>>
+  >({});
 
   const registerRef = useCallback(
     (key: CustomerProfileFieldKey) => (node: HTMLInputElement | null) => {
@@ -105,84 +110,25 @@ const CustomerProfile = forwardRef<
     [],
   );
 
-  // Load persisted profile & default address from Supabase
   useEffect(() => {
-    if (isSamplePreview) {
-      const sampleAddress: CustomerAddressDraft = {
-        id: "sample-address",
-        recipient_name: defaultName || "Alex Morgan",
-        label: "Home",
-        line1: "24 Narra Street",
-        line2: "Unit 3B",
-        city: "Quezon City",
-        region: "Metro Manila",
-        postal_code: "1102",
-        country: "PH",
-      };
-      const sampleBaseline = {
-        name: defaultName || "Alex Morgan",
-        phone: defaultPhone || "+63 917 123 4567",
-        address: sampleAddress,
-      };
-      setName(sampleBaseline.name);
-      setPhone(sampleBaseline.phone);
-      setAddress(sampleBaseline.address);
-      setSavedSnapshot(sampleBaseline);
-      return;
-    }
-
-    if (!supabase) return;
     let active = true;
-    void Promise.all([
-      supabase
-        .from("profiles")
-        .select("display_name,phone")
-        .eq("id", user.id)
-        .maybeSingle(),
-      supabase
-        .from("addresses")
-        .select(
-          "id,recipient_name,label,line1,line2,city,region,postal_code,country",
-        )
-        .eq("user_id", user.id)
-        .order("is_default", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-    ]).then(([profileRes, addrRes]) => {
+    void loadCustomerProfileData(user).then(loaded => {
       if (!active) return;
-      const loadedName = profileRes.data?.display_name ?? defaultName;
-      const loadedPhone = profileRes.data?.phone ?? "";
-      const loadedAddress: CustomerAddressDraft = addrRes.data
-        ? {
-            id: addrRes.data.id,
-            recipient_name: addrRes.data.recipient_name || "",
-            label: addrRes.data.label || "Home",
-            line1: addrRes.data.line1 || "",
-            line2: addrRes.data.line2 || "",
-            city: addrRes.data.city || "",
-            region: addrRes.data.region || "",
-            postal_code: addrRes.data.postal_code || "",
-            country: addrRes.data.country || "PH",
-          }
-        : EMPTY_CUSTOMER_ADDRESS;
-
       setSavedSnapshot({
-        name: loadedName,
-        phone: loadedPhone,
-        address: loadedAddress,
+        name: loaded.name,
+        phone: loaded.phone,
+        address: loaded.address,
       });
-
       if (!initialDraft) {
-        setName(loadedName);
-        setPhone(loadedPhone);
-        setAddress(loadedAddress);
+        setName(loaded.name);
+        setPhone(loaded.phone);
+        setAddress(loaded.address);
       }
     });
-
     return () => {
       active = false;
     };
-  }, [user.id, isSamplePreview, defaultName, defaultPhone, initialDraft]);
+  }, [user, initialDraft]);
 
   const isDirty = hasCustomerFormChanges(
     { name, phone, address },
@@ -223,51 +169,35 @@ const CustomerProfile = forwardRef<
     const trimmedName = name.trim();
     const trimmedPhone = phone.trim();
 
-    if (isSamplePreview) {
+    if (!supabase) {
       setFeedback({ kind: "saving" });
-      await new Promise(resolve => window.setTimeout(resolve, 220));
-      const updatedAddress = validation.addressStarted
-        ? {
-            ...address,
-            recipient_name: address.recipient_name.trim() || trimmedName,
-            line1: address.line1.trim(),
-            line2: address.line2.trim(),
-            city: address.city.trim(),
-            region: address.region.trim(),
-            postal_code: address.postal_code.trim(),
-            country: address.country.trim() || "PH",
-          }
-        : EMPTY_CUSTOMER_ADDRESS;
-
+      await new Promise(resolve => window.setTimeout(resolve, 180));
+      const savedAddress = await saveLocalProfileAndAddress(
+        user.id,
+        trimmedName,
+        trimmedPhone,
+        validation.addressStarted ? address : null,
+      );
       setName(trimmedName);
       setPhone(trimmedPhone);
-      setAddress(updatedAddress);
+      setAddress(savedAddress);
       setSavedSnapshot({
         name: trimmedName,
         phone: trimmedPhone,
-        address: updatedAddress,
+        address: savedAddress,
       });
       setFeedback({
         kind: "saved",
         body: validation.addressStarted
-          ? "Preview changes updated in memory for this session."
-          : "Contact details updated in preview. Add a delivery address whenever you’re ready.",
+          ? "Your profile and delivery address are saved and ready for checkout."
+          : "Your contact details are saved. Add a delivery address whenever you’re ready.",
       });
+      onProfileSaved?.();
       return true;
-    }
-
-    if (!supabase) {
-      setFeedback({
-        kind: "error",
-        title: "Couldn’t save your changes",
-        body: "Supabase is not configured in this environment. Your edits are still here.",
-      });
-      return false;
     }
 
     setFeedback({ kind: "saving" });
 
-    // Check active session before mutating
     const { data: sessionData } = await supabase.auth.getSession();
     if (!sessionData.session) {
       setFeedback({ kind: "session_expired" });
@@ -312,7 +242,6 @@ const CustomerProfile = forwardRef<
             .single();
 
       if (addrResult.error) {
-        // Profile succeeded, address failed -> partial save!
         setName(trimmedName);
         setPhone(trimmedPhone);
         setSavedSnapshot(prev => ({
@@ -360,10 +289,10 @@ const CustomerProfile = forwardRef<
         kind: "saved",
         body: "Your profile and delivery address are ready for your next order.",
       });
+      onProfileSaved?.();
       return true;
     }
 
-    // Profile-only save (no delivery address started)
     setName(trimmedName);
     setPhone(trimmedPhone);
     setSavedSnapshot(prev => ({
@@ -375,8 +304,9 @@ const CustomerProfile = forwardRef<
       kind: "saved",
       body: "Your contact details are saved. Add a delivery address whenever you’re ready.",
     });
+    onProfileSaved?.();
     return true;
-  }, [name, phone, address, isSamplePreview, user.id]);
+  }, [name, phone, address, user.id, onProfileSaved]);
 
   useImperativeHandle(
     ref,
@@ -412,7 +342,7 @@ const CustomerProfile = forwardRef<
         <div className="customer-profile__section">
           <div className="customer-profile__heading">
             <h2 id="customer-profile-title">Your details</h2>
-            <p>Your contact information, all in one place.</p>
+            <p>Your contact information for orders and delivery updates.</p>
           </div>
 
           <div className="gs-form-grid gs-form-grid--two">
@@ -460,8 +390,8 @@ const CustomerProfile = forwardRef<
 
         <div className="customer-profile__section">
           <div className="customer-profile__heading">
-            <h3>Delivery address</h3>
-            <p>Optional until checkout. Add an address when you’re ready.</p>
+            <h3>Default delivery address</h3>
+            <p>Saved here to prefill shipping details automatically at checkout.</p>
           </div>
 
           <TextField
@@ -539,7 +469,7 @@ const CustomerProfile = forwardRef<
               value={address.country}
               inputRef={registerRef("country")}
               autoComplete="country-name"
-              placeholder="Philippines (PH)"
+              placeholder="PH"
               onChange={event =>
                 updateAddressField("country", event.target.value)
               }
@@ -588,7 +518,7 @@ const CustomerProfile = forwardRef<
           <div className="gs-session-expired" role="alert">
             <strong>Your session has expired</strong>
             <p>
-              Sign in again to save your changes. Keep your edits available while re-authenticating.
+              Sign in again to save your changes. Your edits will stay preserved.
             </p>
             <button
               type="button"
@@ -608,7 +538,7 @@ const CustomerProfile = forwardRef<
 
         <div className="customer-profile__footer">
           <p className="customer-profile__privacy">
-            Your details are only used for your orders.
+            Your information is used strictly for order fulfillment and delivery.
           </p>
           <button
             className="gs-btn gs-btn--primary"
@@ -618,7 +548,7 @@ const CustomerProfile = forwardRef<
             {saving ? (
               <>
                 <LoaderCircle size={16} className="spin" aria-hidden="true" />
-                Saving your details…
+                Saving…
               </>
             ) : (
               "Save changes"

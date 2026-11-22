@@ -3,7 +3,7 @@ import { Check, ShoppingBag } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { addToCart } from "@/lib/cart";
-import type { StoreProduct } from "@/lib/storefront";
+import { productIsAvailable, type StoreProduct } from "@/lib/storefront";
 
 export default function AddToCartButton({
   product,
@@ -15,9 +15,8 @@ export default function AddToCartButton({
   disabled?: boolean;
 }) {
   const [justAdded, setJustAdded] = useState(false);
-  const unavailable = disabled || !product.variants.nodes[0]?.availableForSale;
-  const unavailableLabel =
-    product.source !== "supabase" ? "Preview listing" : "Currently unavailable";
+  const unavailable = disabled || !productIsAvailable(product);
+  const unavailableLabel = "Out of stock";
 
   const onAdd = () => {
     if (unavailable) return;
@@ -52,7 +51,7 @@ export default function AddToCartButton({
         >
           {justAdded ? (
             <>
-              <Check size={18} aria-hidden="true" /> Added
+              <Check size={18} aria-hidden="true" /> Added to cart
             </>
           ) : unavailable ? (
             <>

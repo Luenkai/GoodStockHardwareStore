@@ -1,4 +1,4 @@
-import { RefreshCw, Search, X } from "lucide-react";
+import { RefreshCw, Search, SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useLocation, useSearch } from "wouter";
 import ProductCard from "@/components/store/ProductCard";
@@ -46,12 +46,12 @@ export default function Products() {
       (pageQuery.data?.pages.flatMap(page => page.products) ?? []) as StoreProduct[],
     [pageQuery.data],
   );
-  const hasPreviewOnly = products.some(product => product.source !== "supabase");
 
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All");
   const [onlyAvailable, setOnlyAvailable] = useState(false);
   const [sort, setSort] = useState<SortOption>("featured");
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(searchString);
@@ -123,10 +123,7 @@ export default function Products() {
         ) {
           return false;
         }
-        if (
-          onlyAvailable &&
-          (!productIsAvailable(product) || product.source !== "supabase")
-        ) {
+        if (onlyAvailable && !productIsAvailable(product)) {
           return false;
         }
         if (!clean) return true;
@@ -168,27 +165,57 @@ export default function Products() {
   return (
     <StoreLayout>
       <main id="main-content" className="page-width gs-catalog-page">
-        {/* Catalog Introduction */}
         <section className="gs-catalog-intro" aria-labelledby="catalog-heading">
-          <p className="gs-eyebrow">THE SHOP</p>
-          <h1 id="catalog-heading" className="gs-page-title">
-            Parts for projects that need to get done.
-          </h1>
-          <p className="gs-page-lead">
-            Browse the hardware, compare the details, and build a cart when you’re ready.
-          </p>
-          <div className="gs-catalog-notice" role="note">
-            <strong>{hasPreviewOnly ? "Preview catalog" : "Demo catalog"}</strong>
-            <span aria-hidden="true">·</span>
-            <span>
-              Sample prices and availability. Some product images are illustrative.
-            </span>
+          <div className="gs-catalog-intro__copy">
+            <p className="gs-eyebrow">THE SHOP</p>
+            <h1 id="catalog-heading" className="gs-page-title">
+              Parts for projects that need to get done.
+            </h1>
+            <p className="gs-page-lead">
+              Browse trade-grade fasteners, tools, and electrical components, compare specifications, and add what you need to your order.
+            </p>
           </div>
         </section>
 
-        {/* Catalog 2-Column Workspace */}
+        {/* Quick Aisle Chips + Filter Toggle on Mobile / Tablet */}
+        <div className="gs-catalog-mobile-bar">
+          <div
+            className="gs-catalog-pills"
+            role="group"
+            aria-label="Quick category filter"
+          >
+            {aisles.map(aisle => {
+              const isSelected =
+                category.toLowerCase() === aisle.key.toLowerCase();
+              return (
+                <button
+                  key={aisle.key}
+                  type="button"
+                  className={`gs-catalog-pill ${isSelected ? "is-selected" : ""}`.trim()}
+                  aria-pressed={isSelected}
+                  onClick={() => selectCategory(aisle.key)}
+                >
+                  {aisle.label}
+                </button>
+              );
+            })}
+          </div>
+          <button
+            type="button"
+            className="gs-btn gs-btn--secondary gs-btn--compact gs-catalog-filter-toggle"
+            aria-expanded={mobileFiltersOpen}
+            onClick={() => setMobileFiltersOpen(open => !open)}
+          >
+            <SlidersHorizontal size={16} aria-hidden="true" />
+            <span>{mobileFiltersOpen ? "Hide filters" : "Filters"}</span>
+          </button>
+        </div>
+
         <div className="gs-catalog-workspace">
-          <aside className="gs-catalog-filters" aria-label="Catalog filters">
+          <aside
+            className={`gs-catalog-filters ${mobileFiltersOpen ? "is-open" : ""}`.trim()}
+            aria-label="Catalog filters"
+          >
             <div className="gs-filter-group">
               <h2 className="gs-filter-heading">Find your aisle</h2>
               <div className="gs-aisle-list" role="group" aria-label="Hardware categories">
@@ -211,14 +238,14 @@ export default function Products() {
             </div>
 
             <div className="gs-filter-group gs-filter-card">
-              <span className="gs-filter-subhead">Demo availability</span>
+              <span className="gs-filter-subhead">Availability</span>
               <label className="gs-check-row">
                 <input
                   type="checkbox"
                   checked={onlyAvailable}
                   onChange={event => setOnlyAvailable(event.target.checked)}
                 />
-                <span>Checkout-ready demo stock only</span>
+                <span>In stock &amp; ready to ship</span>
               </label>
               <button
                 type="button"
@@ -231,7 +258,7 @@ export default function Products() {
             </div>
 
             <div className="gs-reassurance-box">
-              <p>Compare sizes, materials and compatibility before you choose.</p>
+              <p>Compare sizes, materials, and compatibility before you order.</p>
             </div>
           </aside>
 
@@ -288,9 +315,15 @@ export default function Products() {
                   ? "Loading products…"
                   : `${filtered.length} ${filtered.length === 1 ? "product" : "products"}`}
               </p>
-              <span className="gs-result-summary__note">
-                Search and sort apply to loaded products
-              </span>
+              {hasActiveFilters && (
+                <button
+                  type="button"
+                  className="gs-link-btn"
+                  onClick={resetFilters}
+                >
+                  Clear active filters
+                </button>
+              )}
             </div>
 
             {pageQuery.isLoading ? (
@@ -325,9 +358,7 @@ export default function Products() {
               <section className="gs-card gs-state-card">
                 <h2>No matching hardware found.</h2>
                 <p>
-                  {onlyAvailable && hasPreviewOnly
-                    ? "Preview listings are hidden while checkout-ready stock filter is enabled. Reset filters to browse all sample hardware."
-                    : "Try a broader term, another aisle, or reset your active filters."}
+                  Try a broader search term, choose another aisle, or reset your active filters.
                 </p>
                 <button
                   type="button"
@@ -366,7 +397,7 @@ export default function Products() {
             )}
 
             <div className="gs-catalog-helper">
-              <p>Need a different part? Search by product, brand, or category.</p>
+              <p>Need a specific fastener or tool? Search above by thread size, part name, or brand.</p>
             </div>
           </section>
         </div>
