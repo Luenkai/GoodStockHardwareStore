@@ -9,11 +9,13 @@ import { Link, useLocation } from "wouter";
 import {
   Activity,
   ArrowLeft,
+  ArrowRight,
   BarChart3,
   Box,
   ChartNoAxesCombined,
   ClipboardList,
   Database,
+  LoaderCircle,
   LogOut,
   Package,
   Plus,
@@ -26,13 +28,17 @@ import {
   X,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { formatMoney } from "@/lib/storefront";
+import { formatMoney, type StoreProduct } from "@/lib/storefront";
+import { trpc } from "@/lib/trpc";
+import { useTheme } from "@/contexts/ThemeContext";
+import { InlineStatus, ThemeToggleButton } from "@/components/store/GoodstockControls";
 import { calculateMarkup, suggestedReplenishment } from "@/lib/business-pricing";
 import {
   datasetCsvSource,
   metricDescriptions,
   modelDescriptions,
   parseDataset,
+  predictDemand,
   trainDemandModels,
   type Evaluation,
 } from "@/lib/business-ml";
@@ -148,11 +154,109 @@ const greetingName = (name?: string, email?: string) => {
   return localPart ? localPart.split(/\s+/)[0] : "there";
 };
 
+const SAMPLE_BUSINESS_SALES: (Sale & { note?: string })[] = [
+  {
+    id: "sample-sale-142",
+    receipt_number: "GS-2026-0142",
+    total: "1840.00",
+    currency_code: "PHP",
+    status: "completed",
+    created_at: "2026-11-22T09:40:00Z",
+    note: "3 items · Card",
+  },
+  {
+    id: "sample-sale-141",
+    receipt_number: "GS-2026-0141",
+    total: "620.00",
+    currency_code: "PHP",
+    status: "completed",
+    created_at: "2026-11-22T08:15:00Z",
+    note: "2 items · Cash",
+  },
+  {
+    id: "sample-sale-140",
+    receipt_number: "GS-2026-0140",
+    total: "2490.00",
+    currency_code: "PHP",
+    status: "completed",
+    created_at: "2026-11-21T16:50:00Z",
+    note: "5 items · E-wallet",
+  },
+];
+
+const SAMPLE_DASHBOARD = {
+  product_count: 20,
+  stock_units: 342,
+  low_stock_count: 3,
+  revenue: 18450,
+  sales_count: 14,
+  storefront_demo_order_count: 6,
+  storefront_demo_value_by_currency: [{ currency_code: "PHP", total: 4280 }],
+  low_stock: [
+    {
+      id: "sample-low-1",
+      sku: "GS-TL-012",
+      title: "Combination Wrench Set",
+      inventory: 4,
+      reorder_level: 8,
+      min_stock: 8,
+      max_stock: 24,
+      suggested_replenishment: 20,
+    },
+    {
+      id: "sample-low-2",
+      sku: "GS-EL-004",
+      title: "Miniature Circuit Breaker 20A",
+      inventory: 2,
+      reorder_level: 6,
+      min_stock: 6,
+      max_stock: 20,
+      suggested_replenishment: 18,
+    },
+    {
+      id: "sample-low-3",
+      sku: "GS-TL-009",
+      title: "Needle-Nose Pliers",
+      inventory: 5,
+      reorder_level: 8,
+      min_stock: 8,
+      max_stock: 22,
+      suggested_replenishment: 17,
+    },
+  ],
+  recent_sales: SAMPLE_BUSINESS_SALES,
+  recent_storefront_demo_orders: [
+    {
+      id: "d89a4012-demo-1",
+      status: "demo_submitted",
+      total: "1260.00",
+      currency_code: "PHP",
+      created_at: "2026-11-22T07:30:00Z",
+    },
+    {
+      id: "b41c9208-demo-2",
+      status: "demo_submitted",
+      total: "840.00",
+      currency_code: "PHP",
+      created_at: "2026-11-21T14:20:00Z",
+    },
+  ],
+};
+
 export default function BusinessPortal() {
   const [location, setLocation] = useLocation();
+  const { theme } = useTheme();
   const [user, setUser] = useState<{ id: string; email?: string; displayName?: string } | null>(null);
   const [staff, setStaff] = useState<Staff | null>(null);
   const [loading, setLoading] = useState(Boolean(supabase));
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState("");
+  const [showSetupCard, setShowSetupCard] = useState(false);
+  const sampleCatalogQuery = trpc.storefront.products.useQuery(undefined, {
+    enabled: !supabase,
+    retry: 1,
+    staleTime: 60_000,
+  });
   const [authError, setAuthError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
@@ -356,16 +460,51 @@ export default function BusinessPortal() {
   }, [products, analyticsInput.productId]);
 
   const signOut = async () => {
-    if (supabase) await supabase.auth.signOut();
-    setUser(null);
-    setStaff(null);
-    setLocation("/business");
+    if (signingOut) return;
+    if (!supabase) {
+      setShowSetupCard(true);
+      return;
+    }
+    setSigningOut(true);
+    setSignOutError("");
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        setSigningOut(false);
+        setSignOutError(
+          error.message || "Check your connection and try again. You’re still signed in.",
+        );
+        return;
+      }
+      setUser(null);
+      setStaff(null);
+      setSigningOut(false);
+      setLocation("/business");
+    } catch {
+      setSigningOut(false);
+      setSignOutError("Check your connection and try again. You’re still signed in.");
+    }
   };
   const train = async () => {
     setBusy(true);
     setNotice("");
     try {
       const trained = trainDemandModels();
+      if (!supabase) {
+        const localArtifacts = trained.models.map((item, idx) => ({
+          model_type: item.artifact.kind,
+          version: idx + 1,
+          artifact: item.artifact,
+          metrics: item.metrics,
+          trained_at: new Date().toISOString(),
+        }));
+        setModelArtifacts(localArtifacts);
+        setMetrics(localArtifacts);
+        setNotice(
+          `Sample preview · Both models trained in memory using ${trained.datasetRows.length.toLocaleString()} records.`,
+        );
+        return;
+      }
       for (const item of trained.models) {
         const { data: latest, error } = await supabase!
           .from("business_models")
@@ -401,13 +540,37 @@ export default function BusinessPortal() {
     setForecast([]);
     setNotice("");
     try {
-      const { data, error } = await supabase!.rpc("predict_business_demand", {
-        p_unit_price: Number(analyticsInput.unitPrice),
-        p_promotion: analyticsInput.promotion,
-        p_seasonality: Number(analyticsInput.seasonality),
-        p_previous_month_demand: Number(analyticsInput.previousDemand),
-      });
-      if (error) throw error;
+      let data: { model_type: string; predicted_units: number }[] | null = null;
+      if (!supabase) {
+        const artifacts =
+          modelArtifacts.length > 0
+            ? modelArtifacts
+            : trainDemandModels().models.map((item, idx) => ({
+                model_type: item.artifact.kind,
+                version: idx + 1,
+                artifact: item.artifact,
+                metrics: item.metrics,
+              }));
+        const features = [
+          Number(analyticsInput.unitPrice),
+          analyticsInput.promotion ? 1 : 0,
+          Number(analyticsInput.seasonality),
+          Number(analyticsInput.previousDemand),
+        ];
+        data = artifacts.map((m: any) => ({
+          model_type: m.model_type,
+          predicted_units: Math.round(predictDemand(m.artifact, features)),
+        }));
+      } else {
+        const res = await supabase.rpc("predict_business_demand", {
+          p_unit_price: Number(analyticsInput.unitPrice),
+          p_promotion: analyticsInput.promotion,
+          p_seasonality: Number(analyticsInput.seasonality),
+          p_previous_month_demand: Number(analyticsInput.previousDemand),
+        });
+        if (res.error) throw res.error;
+        data = res.data;
+      }
       if (!data?.length)
         throw new Error(
           "No saved models yet. An instructor must train and save them first."
@@ -701,6 +864,37 @@ export default function BusinessPortal() {
     }
   };
 
+  const isSampleWorkspace = !supabase && !showSetupCard;
+  const sampleProducts: Product[] = ((sampleCatalogQuery.data ?? []) as StoreProduct[]).map(
+    (item, index) => {
+      const lowMatch = SAMPLE_DASHBOARD.low_stock.find(low =>
+        item.title.toLowerCase().includes(low.title.toLowerCase()),
+      );
+      return {
+        id: item.id,
+        sku: lowMatch?.sku ?? `GS-${String(index + 1).padStart(3, "0")}`,
+        title: item.title,
+        handle: item.handle,
+        product_type: item.productType || "Hardware",
+        price: item.priceRange.minVariantPrice.amount,
+        currency_code: item.priceRange.minVariantPrice.currencyCode || "PHP",
+        inventory: lowMatch ? lowMatch.inventory : 18 + (index % 7) * 2,
+        reorder_level: lowMatch ? lowMatch.reorder_level : 8,
+        min_stock: lowMatch ? lowMatch.min_stock : 8,
+        max_stock: lowMatch ? lowMatch.max_stock : 36,
+        is_active: true,
+      };
+    },
+  );
+
+  const activeUser = isSampleWorkspace
+    ? { id: "sample-admin", email: "staff@goodstock.example", displayName: "Alex Morgan" }
+    : user;
+  const activeStaff: Staff | null = isSampleWorkspace ? { role: "admin" } : staff;
+  const activeDashboard = isSampleWorkspace ? SAMPLE_DASHBOARD : dashboard;
+  const activeProducts = isSampleWorkspace ? sampleProducts : products;
+  const activeSales = isSampleWorkspace ? SAMPLE_BUSINESS_SALES : sales;
+
   const page =
     location === "/business/inventory"
       ? "inventory"
@@ -712,29 +906,49 @@ export default function BusinessPortal() {
             ? "users"
             : "overview";
   const authorized =
-    !!staff &&
+    !!activeStaff &&
     roleLinks.some(
-      item => item.href === location && item.roles.includes(staff.role as never)
+      item => item.href === location && item.roles.includes(activeStaff.role as never)
     );
   const pageTitles: Record<string, string> = {
-    overview: `Welcome, ${greetingName(user?.displayName, user?.email)}`,
+    overview: `Welcome, ${greetingName(activeUser?.displayName, activeUser?.email)}.`,
     inventory: "Inventory management",
     sales: "Sales transactions",
     analytics: "Knowledge analysis",
     users: "User management",
   };
-  if (!supabase)
+  const pageSubtitles: Record<string, string> = {
+    overview: "Here’s what needs your attention.",
+    inventory: "Manage shared stock levels, reorder targets, and storefront listings.",
+    sales: "Record counter transactions and generate point-of-sale receipts.",
+    analytics: "Train and compare demand models against workshop sales history.",
+    users: "Review staff access requests and manage workspace roles.",
+  };
+
+  if (!supabase && showSetupCard)
     return (
       <div className="business-config">
-        <p className="eyebrow">Goodstock staff</p>
-        <h1>Connect Supabase to open the business app.</h1>
+        <div className="business-config__topbar">
+          <span className="gs-eyebrow">GOODSTOCK STAFF</span>
+          <ThemeToggleButton />
+        </div>
+        <h1>Connect Supabase for live staff records.</h1>
         <p>
           Configure the existing Supabase URL and publishable key, then apply{" "}
           <code>supabase/business-app.sql</code>.
         </p>
-        <Link className="button button--dark" href="/store">
-          Return to storefront
-        </Link>
+        <div className="business-config__actions">
+          <button
+            type="button"
+            className="gs-btn gs-btn--primary"
+            onClick={() => setShowSetupCard(false)}
+          >
+            Open sample workspace
+          </button>
+          <Link className="gs-btn gs-btn--secondary" href="/store">
+            Back to storefront
+          </Link>
+        </div>
       </div>
     );
   if (loading)
@@ -744,30 +958,38 @@ export default function BusinessPortal() {
         <p>Checking your staff account…</p>
       </div>
     );
-  if (!user)
+  if (!activeUser)
     return (
       <div className="business-config">
-        <p className="eyebrow">Staff workspace</p>
+        <div className="business-config__topbar">
+          <span className="gs-eyebrow">STAFF WORKSPACE</span>
+          <ThemeToggleButton />
+        </div>
         <h1>Sign in to Goodstock Business.</h1>
         <p>
           Use your existing Goodstock account. An administrator must assign your
           staff role before you can access this workspace.
         </p>
-        <Link className="button button--accent" href="/account">
-          Sign in or create account
-        </Link>
-        <Link className="quiet-link" href="/store">
-          Back to the hardware store <ArrowLeft size={16} />
-        </Link>
+        <div className="business-config__actions">
+          <Link className="gs-btn gs-btn--primary" href="/account">
+            Sign in or create account
+          </Link>
+          <Link className="gs-btn gs-btn--secondary" href="/store">
+            <ArrowLeft size={16} aria-hidden="true" /> Back to storefront
+          </Link>
+        </div>
       </div>
     );
-  if (!staff)
+  if (!activeStaff)
     return (
       <div className="business-config">
-        <p className="eyebrow">Business workspace access</p>
-        <h1>Welcome, {greetingName(user.displayName, user.email)}.</h1>
+        <div className="business-config__topbar">
+          <span className="gs-eyebrow">BUSINESS WORKSPACE ACCESS</span>
+          <ThemeToggleButton />
+        </div>
+        <h1>Welcome, {greetingName(activeUser.displayName, activeUser.email)}.</h1>
         <p>
-          Signed in as <strong>{user.email}</strong>. Request workspace access below. A staff role is granted only after an administrator or instructor reviews your request.
+          Signed in as <strong>{activeUser.email}</strong>. Request workspace access below. A staff role is granted only after an administrator or instructor reviews your request.
         </p>
         {accessRequest?.status === "pending" ? (
           <div className="business-request-status" role="status">
@@ -778,95 +1000,245 @@ export default function BusinessPortal() {
           <form className="business-request-form" onSubmit={submitAccessRequest}>
             <label htmlFor="business-request-message">Message (optional)</label>
             <textarea id="business-request-message" maxLength={500} value={requestMessage} onChange={event => setRequestMessage(event.target.value)} placeholder="Tell the team why you need business workspace access." />
-            <button className="button button--accent" disabled={busy}>
+            <button className="gs-btn gs-btn--primary" disabled={busy}>
               {accessRequest?.status === "rejected" ? "Resubmit access request" : "Request business access"}
             </button>
             {accessRequest?.status === "rejected" && <p>Your previous request was declined. You may submit a new request for review.</p>}
           </form>
         )}
         {authError && <p className="business-notice">{authError}</p>}
-        <button className="button button--dark" onClick={() => void signOut()}>
-          <LogOut size={16} /> Sign out
-        </button>
-        <Link className="quiet-link" href="/store">
-          Back to storefront <ArrowLeft size={16} />
-        </Link>
+        {signOutError && (
+          <InlineStatus
+            status="error"
+            title="Couldn’t sign you out"
+            body={signOutError}
+            actionLabel="Try signing out again"
+            onAction={() => void signOut()}
+          />
+        )}
+        <div className="business-config__actions">
+          <button
+            type="button"
+            className="gs-btn gs-btn--secondary"
+            disabled={signingOut}
+            onClick={() => void signOut()}
+          >
+            {signingOut ? (
+              <>
+                <LoaderCircle size={16} className="spin" aria-hidden="true" /> Signing out…
+              </>
+            ) : (
+              <>
+                <LogOut size={16} aria-hidden="true" /> Sign out
+              </>
+            )}
+          </button>
+          <Link className="gs-btn gs-btn--ghost" href="/store">
+            <ArrowLeft size={16} aria-hidden="true" /> Back to storefront
+          </Link>
+        </div>
       </div>
     );
   if (!authorized)
     return (
       <div className="business-config">
-        <p className="eyebrow">Role-restricted screen</p>
+        <div className="business-config__topbar">
+          <span className="gs-eyebrow">ROLE-RESTRICTED SCREEN</span>
+          <ThemeToggleButton />
+        </div>
         <h1>This screen isn’t available for your role.</h1>
         <p>
-          Your access level is <strong>{roleNames[staff.role]}</strong>. Use the
+          Your access level is <strong>{roleNames[activeStaff.role]}</strong>. Use the
           workspace menu for your available tools.
         </p>
-        <Link className="button button--dark" href="/business">
+        <Link className="gs-btn gs-btn--primary" href="/business">
           Open overview
         </Link>
       </div>
     );
+
+  const visibleLinks = roleLinks.filter(item =>
+    item.roles.includes(activeStaff.role as never),
+  );
+  const coreMobileLinks = visibleLinks.filter(
+    item =>
+      item.href === "/business" ||
+      item.href === "/business/inventory" ||
+      item.href === "/business/sales",
+  );
+  const adminMobileLinks = visibleLinks.filter(
+    item =>
+      item.href === "/business/analytics" || item.href === "/business/users",
+  );
+
   const csvRows = parseDataset();
   const shownRows = csvRows.slice(datasetPage * 15, datasetPage * 15 + 15);
   return (
-    <div className="business-shell">
+    <div className="business-shell" data-inert-target="true">
       <aside className="business-sidebar">
         <Link className="business-brand" href="/business">
-          <img src="/brand-mark.svg" alt="" />
-          <span>
-            goodstock<small>business workspace</small>
-          </span>
+          <span className="gs-wordmark__name">goodstock</span>
+          <small>Business workspace · {roleNames[activeStaff.role]}</small>
         </Link>
         <div className="business-sidebar__label">Workspace</div>
-        <nav>
-          {roleLinks
-            .filter(item => item.roles.includes(staff.role as never))
-            .map(item => {
-              const Icon = item.icon;
-              return (
+        <nav aria-label="Business workspace">
+          {visibleLinks.map(item => {
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={location === item.href ? "is-active" : ""}
+              >
+                <Icon size={18} aria-hidden="true" />
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+        <div className="business-sidebar__bottom">
+          <Link href="/store" className="business-side-back">
+            <ArrowLeft size={16} aria-hidden="true" /> Back to storefront
+          </Link>
+          <div className="business-user">
+            <span className="business-avatar">
+              {greetingName(activeUser.displayName, activeUser.email).slice(0, 1).toUpperCase()}
+            </span>
+            <span>
+              <strong>{activeUser.displayName || activeUser.email}</strong>
+              <small>{roleNames[activeStaff.role]}</small>
+            </span>
+          </div>
+          {isSampleWorkspace ? (
+            <button
+              type="button"
+              className="business-signout"
+              onClick={() => setShowSetupCard(true)}
+            >
+              <Database size={15} aria-hidden="true" /> Supabase setup guide
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="business-signout"
+              disabled={signingOut}
+              onClick={() => void signOut()}
+            >
+              {signingOut ? (
+                <>
+                  <LoaderCircle size={15} className="spin" aria-hidden="true" /> Signing out…
+                </>
+              ) : (
+                <>
+                  <LogOut size={15} aria-hidden="true" /> Sign out
+                </>
+              )}
+            </button>
+          )}
+        </div>
+      </aside>
+
+      <main className="business-main">
+        {/* Mobile Business Header (matches Figma 7:1266) */}
+        <div className="business-mobile-header">
+          <Link href="/business" className="business-mobile-brand">
+            <span className="gs-wordmark__name">goodstock</span>
+            <span className="business-mobile-brand__sub">
+              Business workspace · {roleNames[activeStaff.role]}
+            </span>
+          </Link>
+          <ThemeToggleButton />
+        </div>
+
+        {/* Mobile Workspace Navigation (matches Figma 7:1276 + 7:1281) */}
+        <nav className="business-mobile-nav" aria-label="Mobile business navigation">
+          <div className="business-mobile-nav__row">
+            {coreMobileLinks.map(item => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={location === item.href ? "is-active" : ""}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </div>
+          {adminMobileLinks.length > 0 && (
+            <div className="business-mobile-nav__row business-mobile-nav__row--admin">
+              {adminMobileLinks.map(item => (
                 <Link
                   key={item.href}
                   href={item.href}
                   className={location === item.href ? "is-active" : ""}
                 >
-                  <Icon size={18} />
                   {item.label}
                 </Link>
-              );
-            })}
+              ))}
+            </div>
+          )}
         </nav>
-        <div className="business-sidebar__bottom">
-          <Link href="/store" className="business-side-back">
-            <ArrowLeft size={16} /> Back to storefront
-          </Link>
-          <div className="business-user">
-            <span className="business-avatar">
-              {greetingName(user.displayName, user.email).slice(0, 1).toUpperCase()}
-            </span>
-            <span>
-              <strong>{user.displayName || user.email}</strong>
-              <small>{roleNames[staff.role]}</small>
-            </span>
-          </div>
-          <button className="business-signout" onClick={() => void signOut()}>
-            <LogOut size={15} /> Sign out
-          </button>
-        </div>
-      </aside>
-      <main className="business-main">
+
         <header className="business-topbar">
-          <div>
-            <span className="business-topbar__kicker">
-              GOODSTOCK HARDWARE · STAFF PORTAL
-            </span>
+          <div className="business-topbar__intro">
+            <div className="business-topbar__meta">
+              <span className="business-topbar__kicker">
+                GOODSTOCK HARDWARE · STAFF PORTAL
+              </span>
+              <span
+                className={`business-status-pill ${
+                  isSampleWorkspace ? "business-status-pill--sample" : ""
+                }`.trim()}
+              >
+                {isSampleWorkspace ? "Sample data" : "Live workspace"}
+              </span>
+            </div>
             <h1>{pageTitles[page]}</h1>
+            <p className="business-topbar__sub">{pageSubtitles[page]}</p>
           </div>
-          <span className="business-role-pill">
-            <Shield size={14} />
-            {roleNames[staff.role]}
-          </span>
+
+          <div className="business-topbar__actions">
+            {page === "overview" && (
+              <Link
+                href={
+                  activeStaff.role === "inventory_clerk"
+                    ? "/business/inventory"
+                    : "/business/sales"
+                }
+                className="gs-btn gs-btn--primary"
+              >
+                {activeStaff.role === "inventory_clerk"
+                  ? "Open inventory"
+                  : "Record sale"}
+              </Link>
+            )}
+            <span className="business-role-pill gs-desktop-only">
+              <Shield size={14} aria-hidden="true" />
+              {roleNames[activeStaff.role]}
+            </span>
+            <ThemeToggleButton className="gs-desktop-only" />
+          </div>
         </header>
+
+        {isSampleWorkspace && (
+          <InlineStatus
+            status="info"
+            title="Sample workspace preview"
+            body="Showing labeled sample operational data because Supabase is not configured. Employee sales and storefront demo orders remain tracked separately."
+            actionLabel="Supabase setup"
+            onAction={() => setShowSetupCard(true)}
+          />
+        )}
+
+        {signOutError && (
+          <InlineStatus
+            status="error"
+            title="Couldn’t sign you out"
+            body={signOutError}
+            actionLabel="Try signing out again"
+            onAction={() => void signOut()}
+          />
+        )}
+
         {authError && (
           <div className="business-banner" role="alert">
             {authError}
@@ -889,20 +1261,21 @@ export default function BusinessPortal() {
             <button onClick={() => setNotice("")}>Dismiss</button>
           </div>
         )}
-        <div className="business-content" data-role={staff.role}>
+        <div className="business-content" data-role={activeStaff.role}>
           {page === "overview" && (
             <Overview
-              dashboard={dashboard}
-              staff={staff}
+              dashboard={activeDashboard}
+              staff={activeStaff}
+              darkMode={theme === "dark"}
               onRetry={() => void refreshDashboard()}
             />
           )}
           {page === "inventory" && (
             <Inventory
-              products={products}
-              canEdit={staff.role === "inventory_clerk" || staff.role === "admin" || staff.role === "instructor"}
-              canArchive={staff.role === "admin" || staff.role === "instructor"}
-              canManageCosts={staff.role === "admin" || staff.role === "instructor"}
+              products={activeProducts}
+              canEdit={!isSampleWorkspace && (activeStaff.role === "inventory_clerk" || activeStaff.role === "admin" || activeStaff.role === "instructor")}
+              canArchive={!isSampleWorkspace && (activeStaff.role === "admin" || activeStaff.role === "instructor")}
+              canManageCosts={!isSampleWorkspace && (activeStaff.role === "admin" || activeStaff.role === "instructor")}
               costs={productCosts}
               showArchived={showArchived}
               setShowArchived={value => {
@@ -923,19 +1296,46 @@ export default function BusinessPortal() {
           )}
           {page === "sales" && (
             <Sales
-              products={products}
-              sales={sales}
+              products={activeProducts}
+              sales={activeSales}
               cart={cart}
               setCart={setCart}
-              onCheckout={checkout}
-              onOpenReceipt={openReceipt}
+              onCheckout={
+                isSampleWorkspace
+                  ? async () => {
+                      setNotice(
+                        "Sample preview · Connect Supabase to record live employee sales.",
+                      );
+                    }
+                  : checkout
+              }
+              onOpenReceipt={
+                isSampleWorkspace
+                  ? async sale => {
+                      setReceipt({
+                        receipt_number: sale.receipt_number,
+                        created_at: sale.created_at,
+                        total: sale.total,
+                        currency_code: sale.currency_code,
+                        items: [
+                          {
+                            product_title: "Sample workshop items",
+                            quantity: 1,
+                            unit_price: sale.total,
+                            line_total: sale.total,
+                          },
+                        ],
+                      });
+                    }
+                  : openReceipt
+              }
               busy={busy}
             />
           )}
           {page === "analytics" && (
             <Analytics
-              staff={staff}
-              products={products}
+              staff={activeStaff}
+              products={activeProducts}
               input={analyticsInput}
               setInput={setAnalyticsInput}
               forecast={forecast}
@@ -967,6 +1367,43 @@ export default function BusinessPortal() {
               busy={busy}
             />
           )}
+
+          {/* Mobile Workspace Account Card (matches Figma 7:1338) */}
+          <section
+            className="business-card business-workspace-account"
+            aria-labelledby="workspace-account-heading"
+          >
+            <div>
+              <h2 id="workspace-account-heading">Workspace account</h2>
+              <p>
+                Signed in as <strong>{activeUser.email}</strong> ·{" "}
+                {roleNames[activeStaff.role]}
+              </p>
+            </div>
+            <div className="business-workspace-account__actions">
+              <Link href="/store" className="gs-btn gs-btn--secondary gs-btn--full">
+                <ArrowLeft size={16} aria-hidden="true" /> Back to storefront
+              </Link>
+              {isSampleWorkspace ? (
+                <button
+                  type="button"
+                  className="gs-btn gs-btn--secondary gs-btn--full"
+                  onClick={() => setShowSetupCard(true)}
+                >
+                  Supabase setup guide
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="gs-btn gs-btn--secondary gs-btn--full"
+                  disabled={signingOut}
+                  onClick={() => void signOut()}
+                >
+                  {signingOut ? "Signing out…" : "Sign out"}
+                </button>
+              )}
+            </div>
+          </section>
         </div>
       </main>
       {receipt && <ReceiptModal receipt={receipt} onClose={() => setReceipt(null)} />}
@@ -1015,15 +1452,17 @@ function StatCard({
   value,
   sub,
   icon: Icon,
+  accent = false,
 }: {
   label: string;
   value: string;
   sub: string;
   icon: any;
+  accent?: boolean;
 }) {
   return (
-    <article className="business-stat">
-      <span className="business-stat__icon">
+    <article className={`business-stat ${accent ? "business-stat--accent" : ""}`.trim()}>
+      <span className="business-stat__icon" aria-hidden="true">
         <Icon size={18} />
       </span>
       <span className="business-stat__label">{label}</span>
@@ -1035,10 +1474,12 @@ function StatCard({
 function Overview({
   dashboard,
   staff,
+  darkMode = false,
   onRetry,
 }: {
   dashboard: any;
   staff: Staff;
+  darkMode?: boolean;
   onRetry: () => void;
 }) {
   if (!dashboard)
@@ -1046,7 +1487,7 @@ function Overview({
       <div className="business-card business-empty">
         <div className="skeleton-line" />
         <p>Loading business overview…</p>
-        <button className="button button--dark" onClick={onRetry}>
+        <button className="gs-btn gs-btn--secondary" onClick={onRetry}>
           Refresh
         </button>
       </div>
@@ -1067,24 +1508,28 @@ function Overview({
     currency_code: string;
     created_at: string;
   }[];
+  const lowCount = Number(dashboard.low_stock_count ?? 0);
   const cards = [
     {
       label: "Active products",
       value: String(dashboard.product_count ?? 0),
       sub: "Shared with the storefront",
       icon: Package,
+      accent: false,
     },
     {
       label: "Units in stock",
       value: Number(dashboard.stock_units ?? 0).toLocaleString(),
       sub: "Current sellable inventory",
       icon: Box,
+      accent: false,
     },
     {
       label: "Low-stock alerts",
-      value: String(dashboard.low_stock_count ?? 0),
+      value: String(lowCount),
       sub: "At or below reorder level",
       icon: Warehouse,
+      accent: lowCount > 0,
     },
     ...(canViewSales
       ? [
@@ -1093,12 +1538,14 @@ function Overview({
             value: money(dashboard.revenue ?? 0),
             sub: `${dashboard.sales_count ?? 0} completed employee sales`,
             icon: BarChart3,
+            accent: false,
           },
           {
             label: "Storefront demo orders",
             value: String(dashboard.storefront_demo_order_count ?? 0),
             sub: demoValueSummary || "Unpaid demo checkouts",
             icon: ShoppingCart,
+            accent: false,
           },
         ]
       : []),
@@ -1113,6 +1560,12 @@ function Overview({
       }),
       revenue: Number(s.total),
     }));
+  const gridStroke = darkMode ? "#3b4840" : "#d9ddd4";
+  const axisTickColor = darkMode ? "#a8b4aa" : "#626a64";
+  const barFill = darkMode ? "#f2a080" : "#b84d27";
+  const tooltipBg = darkMode ? "#202a25" : "#fffefa";
+  const tooltipText = darkMode ? "#e9eee8" : "#24352f";
+
   return (
     <>
       <div className="business-stats">
@@ -1126,25 +1579,37 @@ function Overview({
             eyebrow="Needs attention"
             title="Reorder watch"
             body="Products at or below their configured reorder level."
+            action={
+              <Link href="/business/inventory" className="gs-text-link">
+                Open inventory <ArrowRight size={14} aria-hidden="true" />
+              </Link>
+            }
           />
           <div className="business-list">
             {(dashboard.low_stock ?? []).length ? (
-              (dashboard.low_stock as any[]).map(p => (
-                <div className="business-list-row" key={p.id}>
-                  <span className="business-mini-icon">
-                    <Package size={16} />
-                  </span>
-                  <div>
-                    <strong>{p.title}</strong>
-                    <small>
-                      Minimum {p.min_stock} · suggest {p.suggested_replenishment} to reach {p.max_stock} · SKU {p.sku ?? "—"}
-                    </small>
+              (dashboard.low_stock as any[]).map(p => {
+                const target = p.max_stock ?? 50;
+                const topUp =
+                  p.suggested_replenishment ?? Math.max(0, target - Number(p.inventory ?? 0));
+                return (
+                  <div className="business-list-row" key={p.id}>
+                    <span className="business-mini-icon" aria-hidden="true">
+                      <Package size={16} />
+                    </span>
+                    <div>
+                      <strong>{p.title}</strong>
+                      <small>
+                        <span className="business-low-inline">{p.inventory} left</span> · Target{" "}
+                        {target} · Top up {topUp}
+                        {p.sku ? ` · SKU ${p.sku}` : ""}
+                      </small>
+                    </div>
+                    <span className="business-stock-alert">
+                      {p.inventory} left
+                    </span>
                   </div>
-                  <span className="business-stock-alert">
-                    {p.inventory} left
-                  </span>
-                </div>
-              ))
+                );
+              })
             ) : (
               <p className="business-muted">
                 All active products are above reorder level.
@@ -1157,17 +1622,27 @@ function Overview({
             eyebrow="Latest activity"
             title="Recent transactions"
             body="Completed employee sales."
+            action={
+              canViewSales ? (
+                <Link href="/business/sales" className="gs-text-link">
+                  Record sale <ArrowRight size={14} aria-hidden="true" />
+                </Link>
+              ) : undefined
+            }
           />
           <div className="business-list">
             {(dashboard.recent_sales ?? []).length ? (
               (dashboard.recent_sales as any[]).map(s => (
                 <div className="business-list-row" key={s.id}>
-                  <span className="business-mini-icon">
+                  <span className="business-mini-icon" aria-hidden="true">
                     <ClipboardList size={16} />
                   </span>
                   <div>
                     <strong>{s.receipt_number}</strong>
-                    <small>{new Date(s.created_at).toLocaleString()}</small>
+                    <small>
+                      {s.note ? `${s.note} · ` : ""}
+                      {new Date(s.created_at).toLocaleString()}
+                    </small>
                   </div>
                   <b>{money(s.total, s.currency_code)}</b>
                 </div>
@@ -1184,14 +1659,14 @@ function Overview({
         <section className="business-card">
           <SectionHeading
             eyebrow="Storefront activity"
-            title="Recent demo orders"
-            body="Unpaid storefront checkouts; their value is tracked separately from employee sales revenue."
+            title="Storefront demo orders"
+            body="Not included in employee-sale revenue. No payment details are collected."
           />
           <div className="business-list">
             {recentDemoOrders.length ? (
               recentDemoOrders.map(order => (
                 <div className="business-list-row" key={order.id}>
-                  <span className="business-mini-icon">
+                  <span className="business-mini-icon" aria-hidden="true">
                     <ShoppingCart size={16} />
                   </span>
                   <div>
@@ -1225,16 +1700,16 @@ function Overview({
                 <CartesianGrid
                   strokeDasharray="3 3"
                   vertical={false}
-                  stroke="#e1e4dc"
+                  stroke={gridStroke}
                 />
                 <XAxis
                   dataKey="label"
-                  tick={{ fontSize: 10, fill: "#6d786f" }}
+                  tick={{ fontSize: 11, fill: axisTickColor }}
                   axisLine={false}
                   tickLine={false}
                 />
                 <YAxis
-                  tick={{ fontSize: 9, fill: "#6d786f" }}
+                  tick={{ fontSize: 10, fill: axisTickColor }}
                   axisLine={false}
                   tickLine={false}
                   width={54}
@@ -1243,15 +1718,17 @@ function Overview({
                   formatter={value => money(Number(value))}
                   contentStyle={{
                     borderRadius: 12,
-                    border: "1px solid #d9ddd4",
-                    fontSize: 11,
+                    border: `1px solid ${gridStroke}`,
+                    backgroundColor: tooltipBg,
+                    color: tooltipText,
+                    fontSize: 12,
                   }}
                 />
                 <Bar
                   dataKey="revenue"
                   name="Sale total"
-                  fill="#b84d27"
-                  radius={[5, 5, 0, 0]}
+                  fill={barFill}
+                  radius={[6, 6, 0, 0]}
                 />
               </BarChart>
             </ResponsiveContainer>
@@ -1263,7 +1740,7 @@ function Overview({
         </div>
       </section>
       <div className="business-note">
-        <Shield size={16} />
+        <Shield size={16} aria-hidden="true" />
         <span>
           Signed in as <strong>{roleNames[staff.role]}</strong>. Inventory and
           sales are shared with the Goodstock storefront.

@@ -9,6 +9,8 @@ export type DemoCartItem = {
 const STORAGE_KEY = "goodstock_demo_cart";
 const EVENT_NAME = "goodstock-cart-updated";
 
+let memoryFallbackRaw = "[]";
+
 function parseCart(raw: string): DemoCartItem[] {
   try {
     const value = JSON.parse(raw);
@@ -18,8 +20,23 @@ function parseCart(raw: string): DemoCartItem[] {
   }
 }
 
+function safeReadRaw(): string {
+  try {
+    if (typeof window !== "undefined") {
+      const stored = window.localStorage.getItem(STORAGE_KEY);
+      if (stored !== null) {
+        memoryFallbackRaw = stored;
+        return stored;
+      }
+    }
+  } catch {
+    // Fall back to in-memory cart snapshot when localStorage throws.
+  }
+  return memoryFallbackRaw;
+}
+
 function readCart(): DemoCartItem[] {
-  return parseCart(window.localStorage.getItem(STORAGE_KEY) ?? "[]");
+  return parseCart(safeReadRaw());
 }
 
 let cachedSnapshotRaw: string | null = null;
@@ -27,7 +44,7 @@ let cachedSnapshot: DemoCartItem[] = [];
 const EMPTY_SERVER_CART: DemoCartItem[] = [];
 
 function getCartSnapshot(): DemoCartItem[] {
-  const raw = window.localStorage.getItem(STORAGE_KEY) ?? "[]";
+  const raw = safeReadRaw();
   if (raw !== cachedSnapshotRaw) {
     cachedSnapshotRaw = raw;
     cachedSnapshot = parseCart(raw);
@@ -36,8 +53,18 @@ function getCartSnapshot(): DemoCartItem[] {
 }
 
 function writeCart(items: DemoCartItem[]): void {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-  window.dispatchEvent(new Event(EVENT_NAME));
+  const raw = JSON.stringify(items);
+  memoryFallbackRaw = raw;
+  try {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(STORAGE_KEY, raw);
+    }
+  } catch {
+    // Keep cart in memory when storage is unavailable.
+  }
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(EVENT_NAME));
+  }
 }
 
 export function addToCart(product: StoreProduct, quantity = 1): void {
@@ -49,7 +76,11 @@ export function addToCart(product: StoreProduct, quantity = 1): void {
 }
 
 export function updateCartQuantity(productId: string, quantity: number): void {
-  const items = readCart().map(item => item.product.id === productId ? { ...item, quantity: Math.min(99, Math.max(1, quantity)) } : item);
+  const items = readCart().map(item =>
+    item.product.id === productId
+      ? { ...item, quantity: Math.min(99, Math.max(1, quantity)) }
+      : item,
+  );
   writeCart(items);
 }
 
@@ -66,7 +97,10 @@ export function useDemoCart(): DemoCartItem[] {
     callback => {
       window.addEventListener(EVENT_NAME, callback);
       window.addEventListener("storage", callback);
-      return () => { window.removeEventListener(EVENT_NAME, callback); window.removeEventListener("storage", callback); };
+      return () => {
+        window.removeEventListener(EVENT_NAME, callback);
+        window.removeEventListener("storage", callback);
+      };
     },
     getCartSnapshot,
     () => EMPTY_SERVER_CART,
