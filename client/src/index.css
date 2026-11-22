@@ -68,7 +68,7 @@ main { flex: 1; }
 .store-header__inner { width: min(var(--page-width), calc(100% - 64px)); height: 78px; margin-inline: auto; display: flex; align-items: center; gap: clamp(26px, 4vw, 62px); }
 .brand-lockup { display: inline-flex; align-items: center; gap: 11px; flex: 0 0 auto; font-family: "Space Grotesk", sans-serif; font-size: 20px; line-height: 1; font-weight: 700; letter-spacing: -0.055em; }
 .brand-lockup img { width: 42px; height: 42px; border-radius: 14px; }
-.brand-lockup__descriptor { display: block; margin-top: 4px; color: #657068; font-family: "DM Sans", sans-serif; font-size: 9px; font-weight: 700; line-height: 1; letter-spacing: 0.18em; text-transform: uppercase; }
+.brand-lockup__descriptor { display: block; margin-top: 4px; color: #657068; font-family: "DM Sans", sans-serif; font-size: 10px; font-weight: 700; line-height: 1; letter-spacing: 0.18em; text-transform: uppercase; }
 .desktop-nav { display: flex; align-items: center; gap: clamp(20px, 3vw, 38px); flex: 1; }
 .desktop-nav a, .mobile-nav a { color: #48564e; font-size: 13px; font-weight: 600; transition: color 160ms ease; }
 .desktop-nav a:hover, .desktop-nav a[aria-current="page"], .mobile-nav a:hover { color: var(--accent); }
@@ -307,27 +307,27 @@ main { flex: 1; }
 .account-business-switch__icon { display: grid; flex: 0 0 38px; place-items: center; width: 38px; height: 38px; border-radius: 12px; background: var(--deep-green); color: #f3f1e8; }
 .account-business-switch__copy { display: grid; min-width: 0; gap: 3px; }
 .account-business-switch__copy strong { font-size: 12px; line-height: 1.35; }
-.account-business-switch__copy small { color: #627067; font-size: 10px; line-height: 1.4; }
+.account-business-switch__copy small { color: #627067; font-size: 12px; line-height: 1.4; }
 .account-business-switch > svg:last-child { flex: 0 0 auto; margin-left: 4px; color: #526457; }
 .account-orders { margin-top: 26px; padding-top: 21px; border-top: 1px solid var(--line); }
 .account-orders__heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
 .account-orders__heading h2 { margin: 0; font-family: "Space Grotesk", sans-serif; font-size: 18px; font-weight: 600; letter-spacing: -0.04em; }
-.account-orders__heading span { color: #7a857d; font-size: 10px; font-weight: 600; }
+.account-orders__heading span { color: #68736c; font-size: 12px; font-weight: 600; }
 .account-orders__list { margin: 0; padding: 0; list-style: none; }
 .account-order { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 12px 0; border-top: 1px solid rgba(36, 53, 47, 0.09); font-size: 12px; }
 .account-order > div { display: grid; gap: 4px; }
-.account-order > div span { color: #68736c; font-size: 10px; }
+.account-order > div span { color: #68736c; font-size: 12px; }
 .account-order > strong { white-space: nowrap; }
 .account-orders__empty { margin: 0; color: #657068; font-size: 12px; line-height: 1.6; }
 .account-orders__skeleton { height: 66px; margin-top: 12px; border-radius: 12px; }
 .account-cta { margin-top: 25px; }
-.account-card__note { margin: 16px 0 0; color: #68736c; font-size: 10px; line-height: 1.6; }
+.account-card__note { margin: 16px 0 0; color: #68736c; font-size: 12px; line-height: 1.6; }
 .account-benefits { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; padding: 37px 0 0; }
 .account-benefits > div { padding: 0 20px; border-left: 1px solid var(--line); }
 .account-benefits > div:first-child { border-left: 0; padding-left: 0; }
 .account-benefits svg { color: #58705d; }
 .account-benefits h2 { margin: 14px 0 5px; font-family: "Space Grotesk", sans-serif; font-size: 16px; font-weight: 600; letter-spacing: -0.035em; }
-.account-benefits p { margin: 0; color: #657068; font-size: 11px; line-height: 1.6; }
+.account-benefits p { margin: 0; color: #657068; font-size: 12px; line-height: 1.6; }
 .account-back { margin: 36px 0 0; text-align: center; color: #5c675f; font-size: 12px; }
 .account-back a { text-decoration: underline; text-decoration-color: #9ba49b; text-underline-offset: 4px; }
 .account-error { margin-top: 22px; color: #7a3d2a; font-size: 12px; }
@@ -471,7 +471,7 @@ main { flex: 1; }
   .account-benefits > div, .account-benefits > div:first-child { display: grid; grid-template-columns: 24px 1fr; align-items: start; column-gap: 11px; padding: 0; border: 0; }
   .account-benefits svg { grid-row: span 2; margin-top: 2px; }
   .account-benefits h2 { margin: 0 0 3px; font-size: 15px; }
-  .account-benefits p { grid-column: 2; font-size: 11px; }
+  .account-benefits p { grid-column: 2; font-size: 12px; }
   .store-footer__inner { min-height: 0; grid-template-columns: 1fr; gap: 13px; padding-block: 26px; }
   .store-footer__inner > p { margin: 0; }
   .store-footer__links { justify-content: flex-start; flex-wrap: wrap; gap: 11px 17px; }
@@ -758,7 +758,9 @@ main { flex: 1; }
 .customer-profile__form { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 13px; }
 .customer-profile__form label { display: grid; gap: 6px; color: var(--muted); font-size: 12px; font-weight: 700; }
 .customer-profile__form input { width: 100%; min-height: 43px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); color: var(--ink); font-size: 14px; }
-.customer-profile__form input[readonly] { opacity: .75; }
+.customer-profile__form input[readonly] { background: var(--surface-soft); color: var(--muted); cursor: default; }
+.customer-profile__field { display: grid; gap: 6px; }
+.customer-profile__hint { color: var(--muted); font-size: 12px; line-height: 1.4; }
 .customer-profile__form h3 { grid-column: 1/-1; margin: 10px 0 0; font: 600 16px "Space Grotesk",sans-serif; }
 .customer-profile__form button,.customer-profile__notice { grid-column: 1/-1; }
 .customer-profile__notice { margin: 0; color: var(--muted); font-size: 12px; }
@@ -788,6 +790,17 @@ main { flex: 1; }
 .dark .category-card,.dark .hero-showcase,.dark .value-strip { background:#202a25; color:var(--ink); }
 .dark .value-strip { border-color:var(--line); }
 .dark .account-benefits>div { border-color:var(--line); }
+/* Account page, dark mode: these colors were hardcoded for light mode and fell below AA contrast. */
+.dark .account-form label,.dark .account-business-switch__copy small,.dark .account-orders__heading span,.dark .account-back { color:var(--muted); }
+.dark .account-form input:focus { border-color:var(--accent-light); box-shadow:0 0 0 3px rgba(242,160,128,.22); }
+.dark .account-error,.dark .account-card p.account-error { color:var(--accent-light); }
+.dark .account-card__visual { background:var(--moss); }
+.dark .account-business-switch { background:var(--surface-soft); border-color:var(--line); }
+.dark .account-business-switch:hover { background:#303c35; border-color:#5a6b5f; }
+.dark .account-business-switch:focus-visible { outline-color:rgba(242,160,128,.6); }
+.dark .account-business-switch__icon { background:var(--moss); color:#dce8dc; }
+.dark .account-business-switch>svg:last-child { color:var(--muted); }
+.dark .account-order { border-color:var(--line); }
 .dark .business-banner { background:#27352d; color:#dce8dc; }
 @media (max-width: 560px) { .catalog-demo-note { align-items: flex-start; flex-direction: column; gap: 5px; } }
 @media(max-width:600px){.entry-page{padding:20px}.entry-card{padding:28px 22px}.entry-actions{display:grid}.customer-profile{padding:17px}.customer-profile__form{grid-template-columns:1fr}.customer-profile__form h3,.customer-profile__form button,.customer-profile__notice{grid-column:auto}}
