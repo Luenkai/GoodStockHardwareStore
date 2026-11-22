@@ -1,6 +1,6 @@
 import { ArrowRight, BarChart3, ShieldCheck, ShoppingBag, Store, Warehouse } from "lucide-react";
 import { Link } from "wouter";
-import { ThemeToggleButton } from "@/components/store/GoodstockControls";
+import { GoodstockLogo, ThemeToggleButton } from "@/components/store/GoodstockControls";
 
 export default function Entry() {
   return (
@@ -8,7 +8,7 @@ export default function Entry() {
       <section className="entry-shell page-width" aria-labelledby="entry-title">
         <div className="entry-shell__inner">
           <div className="entry-topbar">
-            <span className="gs-wordmark__name">goodstock</span>
+            <GoodstockLogo />
             <ThemeToggleButton />
           </div>
 

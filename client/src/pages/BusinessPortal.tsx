@@ -1305,9 +1305,12 @@ export default function BusinessPortal() {
   return (
     <div className="business-shell" data-inert-target="true">
       <aside className="business-sidebar">
-        <Link className="business-brand" href="/business">
-          <span className="gs-wordmark__name">goodstock</span>
-          <small>business workspace</small>
+        <Link className="business-brand" href="/business" aria-label="Goodstock Business Workspace">
+          <img src="/brand-mark.svg" width={39} height={39} alt="" />
+          <span>
+            goodstock
+            <small>business workspace</small>
+          </span>
         </Link>
         <div className="business-sidebar__label">Workspace</div>
         <nav aria-label="Business workspace">
@@ -1366,10 +1369,13 @@ export default function BusinessPortal() {
         </div>
 
         <div className="business-mobile-header">
-          <Link href="/business" className="business-mobile-brand">
-            <span className="gs-wordmark__name">goodstock</span>
-            <span className="business-mobile-brand__sub">
-              business workspace · {roleNames[activeStaff.role]}
+          <Link href="/business" className="business-mobile-brand" aria-label="Goodstock Business Workspace">
+            <img src="/brand-mark.svg" width={36} height={36} alt="" />
+            <span>
+              goodstock
+              <span className="business-mobile-brand__sub">
+                business workspace · {roleNames[activeStaff.role]}
+              </span>
             </span>
           </Link>
           <ThemeToggleButton />

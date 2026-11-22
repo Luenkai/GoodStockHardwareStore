@@ -12,7 +12,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useState } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { useDemoCart } from "@/lib/cart";
-import { ThemeToggleButton } from "@/components/store/GoodstockControls";
+import { GoodstockLogo, ThemeToggleButton } from "@/components/store/GoodstockControls";
 import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 
@@ -94,14 +94,10 @@ export default function StoreLayout({ children }: { children: ReactNode }) {
 
         <div className="gs-main-nav">
           <div className="page-width gs-main-nav__inner">
-            <Link
+            <GoodstockLogo
               href="/store"
-              className="gs-wordmark"
-              aria-label="Goodstock Hardware storefront home"
-            >
-              <span className="gs-wordmark__name">goodstock</span>
-              <span className="gs-wordmark__sub">HARDWARE</span>
-            </Link>
+              ariaLabel="Goodstock Hardware home"
+            />
 
             <form
               className="gs-header-search"
@@ -271,7 +267,11 @@ export default function StoreLayout({ children }: { children: ReactNode }) {
       <footer className="gs-footer">
         <div className="page-width gs-footer__inner">
           <div className="gs-footer__brand-group">
-            <span className="gs-footer__brand">Goodstock Hardware</span>
+            <GoodstockLogo
+              href="/store"
+              size="sm"
+              ariaLabel="Goodstock Hardware home"
+            />
             <p className="gs-footer__legal">
               © 2026 Goodstock Hardware Supply. Quality fasteners, hand tools, and electrical essentials.
             </p>

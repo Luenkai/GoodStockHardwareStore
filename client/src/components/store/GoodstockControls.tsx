@@ -1,7 +1,48 @@
 import React, { useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
+import { Link } from "wouter";
 import { AlertCircle, Check, Info, LoaderCircle, Moon, Sun } from "lucide-react";
 import { useTheme, type ThemePreference } from "@/contexts/ThemeContext";
+
+export function GoodstockLogo({
+  href,
+  descriptor = "hardware",
+  size = "md",
+  ariaLabel = "Goodstock Hardware",
+  className = "",
+}: {
+  href?: string;
+  descriptor?: string;
+  size?: "md" | "sm";
+  ariaLabel?: string;
+  className?: string;
+}) {
+  const dimension = size === "sm" ? 36 : 42;
+  const classes = `brand-lockup ${size === "sm" ? "brand-lockup--sm" : ""} ${className}`.trim();
+  const content = (
+    <>
+      <img src="/brand-mark.svg" width={dimension} height={dimension} alt="" />
+      <span>
+        goodstock
+        <span className="brand-lockup__descriptor">{descriptor}</span>
+      </span>
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link href={href} className={classes} aria-label={ariaLabel}>
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <div className={classes} aria-label={ariaLabel}>
+      {content}
+    </div>
+  );
+}
 
 export function ThemeToggleButton({ className = "" }: { className?: string }) {
   const { theme, toggleTheme } = useTheme();

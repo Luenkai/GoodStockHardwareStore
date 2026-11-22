@@ -2,6 +2,7 @@ import { ArrowRight, CheckCircle2, Eye, EyeOff, LoaderCircle } from "lucide-reac
 import { FormEvent, useState } from "react";
 import { Link, Redirect, useLocation, useSearch } from "wouter";
 import {
+  GoodstockLogo,
   InlineStatus,
   TextField,
   ThemeToggleButton,
@@ -94,10 +95,7 @@ export default function CreateAccount() {
     <div className="gs-auth-shell">
       <header className="gs-auth-topbar">
         <div className="page-width gs-auth-topbar__inner">
-          <div className="gs-wordmark" aria-label="Goodstock Hardware">
-            <span className="gs-wordmark__name">goodstock</span>
-            <span className="gs-wordmark__sub">HARDWARE</span>
-          </div>
+          <GoodstockLogo />
           <div className="gs-auth-topbar__actions">
             <ThemeToggleButton />
             <Link href={signInHref} className="gs-btn gs-btn--secondary gs-btn--compact">

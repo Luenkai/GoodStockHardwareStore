@@ -171,7 +171,13 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
     return (
       <div className="gs-auth-gate-loader" role="status" aria-live="polite">
         <div className="gs-auth-gate-loader__card">
-          <span className="gs-wordmark__name">goodstock</span>
+          <div className="brand-lockup" aria-label="Goodstock Hardware">
+            <img src="/brand-mark.svg" width={42} height={42} alt="" />
+            <span>
+              goodstock
+              <span className="brand-lockup__descriptor">hardware</span>
+            </span>
+          </div>
           <p>Verifying your session…</p>
         </div>
       </div>
