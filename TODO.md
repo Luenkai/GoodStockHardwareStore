@@ -18,6 +18,21 @@
 - [x] Cart/recent-order product suggestions rank available active products, exclude cart and recent purchases, and read only the signed-in user's orders.
 - [x] Admin-only reversible product archive and restore; archived products are hidden from the storefront and historical order references are retained.
 
+## To implement
+
+- [x] Welcome each signed-in business user with their profile display name; fall back to account metadata or a readable email name when the profile name is blank.
+- [x] Let a registered user submit a business-workspace access request; keep the request pending until an admin or instructor approves it and assigns a staff role, allow rejection and resubmission, and never grant business access from the request alone.
+- [x] Give instructors every admin workspace function, including inventory management, sales, role assignment/revocation, request approval, and product archive/restore; preserve the existing role boundaries for non-admin/non-instructor staff.
+- [x] Show a point-of-sale receipt with receipt number, sale date/time, product names, quantities, unit prices, line totals, and overall total; allow completed receipts to be reopened and printed.
+- [x] Track supplier name and supplier cost separately from the customer-facing selling price; calculate markup amount and percentage; restrict supplier-cost visibility and editing to admins/instructors and do not expose costs to storefront queries.
+- [x] Keep the existing demand-model training, held-out testing, evaluation results, and metrics available in Knowledge Analysis to the authorized admin/instructor roles.
+- [ ] Increase small business-app text across navigation, dashboard, forms, tables, and mobile layouts while retaining responsive behavior and readable touch controls.
+- [x] Add per-product minimum and maximum stock levels; alert at/below minimum and show suggested replenishment as maximum minus current stock without silently changing inventory.
+- [x] Add focused tests for markup and replenishment calculations, and document the additive Supabase migration and access behavior.
+
+- [x] Show a storefront entry screen before browsing; allow guest shopping and send authenticated staff directly to the business workspace.
+- [x] Add a persistent light/dark mode toggle across the storefront and staff workspace.
+- [x] Let signed-in customers edit their profile name, phone, and delivery address from the account page.
 ## Setup or verification required
 
 - [x] Apply and verify the product archive/restore RPC migration in the connected Supabase project.

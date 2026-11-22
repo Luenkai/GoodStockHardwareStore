@@ -8,6 +8,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import Account from "./pages/Account";
 import Cart from "./pages/Cart";
 import Home from "./pages/Home";
+import Entry from "./pages/Entry";
 import NotFound from "./pages/NotFound";
 import ProductDetail from "./pages/ProductDetail";
 import Products from "./pages/Products";
@@ -24,7 +25,8 @@ function BusinessPortalRoute() {
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Home} />
+      <Route path="/" component={Entry} />
+      <Route path="/store" component={Home} />
       <Route path="/products/:handle" component={ProductDetail} />
       <Route path="/products" component={Products} />
       <Route path="/cart" component={Cart} />
@@ -43,7 +45,7 @@ function Router() {
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider defaultTheme="light">
+      <ThemeProvider defaultTheme="light" switchable>
         <MotionConfig reducedMotion="user">
           <TooltipProvider>
             <Toaster position="bottom-right" />

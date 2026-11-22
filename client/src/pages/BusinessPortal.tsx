@@ -17,13 +17,17 @@ import {
   LogOut,
   Package,
   Plus,
+  Printer,
+  Save,
   Shield,
   ShoppingCart,
   Users,
   Warehouse,
+  X,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { formatMoney } from "@/lib/storefront";
+import { calculateMarkup, suggestedReplenishment } from "@/lib/business-pricing";
 import {
   datasetCsvSource,
   metricDescriptions,
@@ -55,6 +59,8 @@ type Product = {
   currency_code: string;
   inventory: number;
   reorder_level: number;
+  min_stock: number;
+  max_stock: number;
   is_active: boolean;
 };
 type Sale = {
@@ -64,6 +70,28 @@ type Sale = {
   currency_code: string;
   status: string;
   created_at: string;
+};
+type AccessRequest = {
+  request_id: string;
+  user_id: string;
+  email: string;
+  display_name: string;
+  message: string;
+  status: string;
+  requested_at: string;
+};
+type ProductCost = {
+  product_id: string;
+  supplier_name: string;
+  supplier_price: number | string;
+  currency_code: string;
+};
+type Receipt = {
+  receipt_number: string;
+  created_at: string;
+  total: number | string;
+  currency_code: string;
+  items: { product_title: string; quantity: number; unit_price: number | string; line_total: number | string }[];
 };
 const roleNames: Record<Role, string> = {
   inventory_clerk: "Inventory clerk",
@@ -82,13 +110,13 @@ const roleLinks = [
     href: "/business/inventory",
     label: "Inventory",
     icon: Warehouse,
-    roles: ["inventory_clerk", "admin"],
+    roles: ["inventory_clerk", "admin", "instructor"],
   },
   {
     href: "/business/sales",
     label: "Sales",
     icon: ShoppingCart,
-    roles: ["sales_personnel", "admin"],
+    roles: ["sales_personnel", "admin", "instructor"],
   },
   {
     href: "/business/analytics",
@@ -100,7 +128,7 @@ const roleLinks = [
     href: "/business/users",
     label: "User management",
     icon: Users,
-    roles: ["admin"],
+    roles: ["admin", "instructor"],
   },
 ] as const;
 const roleOptions: Role[] = [
@@ -113,10 +141,16 @@ const money = (n: number | string, currency = "PHP") =>
   formatMoney({ amount: String(n), currencyCode: currency });
 const errorText = (e: unknown) =>
   e instanceof Error ? e.message : "Something went wrong. Please try again.";
+const greetingName = (name?: string, email?: string) => {
+  const cleanName = name?.trim();
+  if (cleanName) return cleanName.split(/\s+/)[0];
+  const localPart = email?.split("@")[0]?.replace(/[._-]+/g, " ").trim();
+  return localPart ? localPart.split(/\s+/)[0] : "there";
+};
 
 export default function BusinessPortal() {
   const [location, setLocation] = useLocation();
-  const [user, setUser] = useState<{ id: string; email?: string } | null>(null);
+  const [user, setUser] = useState<{ id: string; email?: string; displayName?: string } | null>(null);
   const [staff, setStaff] = useState<Staff | null>(null);
   const [loading, setLoading] = useState(Boolean(supabase));
   const [authError, setAuthError] = useState("");
@@ -129,6 +163,12 @@ export default function BusinessPortal() {
   const [metrics, setMetrics] = useState<any>(null);
   const [datasetPage, setDatasetPage] = useState(0);
   const [staffRows, setStaffRows] = useState<any[]>([]);
+  const [accessRequests, setAccessRequests] = useState<AccessRequest[]>([]);
+  const [accessRequest, setAccessRequest] = useState<{ status: string; message: string } | null>(null);
+  const [requestMessage, setRequestMessage] = useState("");
+  const [requestRoles, setRequestRoles] = useState<Record<string, Role>>({});
+  const [productCosts, setProductCosts] = useState<Record<string, ProductCost>>({});
+  const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [showProductForm, setShowProductForm] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [cart, setCart] = useState<Record<string, number>>({});
@@ -149,20 +189,24 @@ export default function BusinessPortal() {
     price: "",
     inventory: "0",
     reorder_level: "5",
+    min_stock: "5",
+    max_stock: "50",
   });
 
   const loadRole = useCallback(async (uid: string) => {
     if (!supabase) return;
-    const { data, error } = await supabase
-      .from("business_staff")
-      .select("role")
-      .eq("user_id", uid)
-      .maybeSingle();
+    const [{ data, error }, { data: profile }] = await Promise.all([
+      supabase.from("business_staff").select("role").eq("user_id", uid).maybeSingle(),
+      supabase.from("profiles").select("display_name").eq("id", uid).maybeSingle(),
+    ]);
     if (error) {
       setAuthError(error.message);
       setStaff(null);
       return;
     }
+    setUser(current => current?.id === uid
+      ? { ...current, displayName: profile?.display_name || current.displayName }
+      : current);
     const role = (data as Staff | null)?.role;
     setStaff(role && roleOptions.includes(role) ? { role } : null);
   }, []);
@@ -174,18 +218,32 @@ export default function BusinessPortal() {
     void supabase.auth.getSession().then(async ({ data, error }) => {
       if (error) setAuthError(error.message);
       const next = data.session?.user ?? null;
-      setUser(next ? { id: next.id, email: next.email } : null);
+      setUser(next ? { id: next.id, email: next.email, displayName: next.user_metadata?.display_name || next.user_metadata?.full_name || "" } : null);
       if (next) await loadRole(next.id);
       setLoading(false);
     });
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       const next = session?.user ?? null;
-      setUser(next ? { id: next.id, email: next.email } : null);
+      setUser(next ? { id: next.id, email: next.email, displayName: next.user_metadata?.display_name || next.user_metadata?.full_name || "" } : null);
       setStaff(null);
       if (next) void loadRole(next.id);
     });
     return () => data.subscription.unsubscribe();
   }, [loadRole]);
+
+  useEffect(() => {
+    if (!supabase || !user || staff) {
+      setAccessRequest(null);
+      return;
+    }
+    let active = true;
+    void supabase.from("business_access_requests").select("status,message")
+      .eq("user_id", user.id).maybeSingle()
+      .then(({ data }) => {
+        if (active) setAccessRequest(data ?? null);
+      });
+    return () => { active = false; };
+  }, [user, staff]);
 
   const refreshDashboard = useCallback(async () => {
     if (!supabase || !staff) return;
@@ -198,7 +256,7 @@ export default function BusinessPortal() {
     const { data, error } = await supabase
       .from("products")
       .select(
-        "id,sku,title,handle,product_type,price,currency_code,inventory,reorder_level,is_active"
+        "id,sku,title,handle,product_type,price,currency_code,inventory,reorder_level,min_stock,max_stock,is_active"
       )
       .eq("is_active", !archived)
       .order("title");
@@ -237,14 +295,28 @@ export default function BusinessPortal() {
     if (error) throw error;
     setStaffRows(data ?? []);
   }, []);
+  const refreshAccessRequests = useCallback(async () => {
+    if (!supabase) return;
+    const { data, error } = await supabase.rpc("list_business_access_requests");
+    if (error) throw error;
+    setAccessRequests((data ?? []) as AccessRequest[]);
+  }, []);
+  const refreshProductCosts = useCallback(async () => {
+    if (!supabase) return;
+    const { data, error } = await supabase.rpc("get_business_product_costs");
+    if (error) throw error;
+    setProductCosts(Object.fromEntries((data ?? []).map((cost: ProductCost) => [cost.product_id, cost])));
+  }, []);
   useEffect(() => {
     if (!staff || !supabase) return;
     setAuthError("");
     const run = async () => {
       try {
         if (location === "/business") await refreshDashboard();
-        if (location === "/business/inventory")
+        if (location === "/business/inventory") {
           await refreshProducts(showArchived);
+          if (staff.role === "admin" || staff.role === "instructor") await refreshProductCosts();
+        }
         if (location === "/business/sales") {
           await refreshProducts();
           await refreshSales();
@@ -252,7 +324,7 @@ export default function BusinessPortal() {
         if (location === "/business/analytics") {
           await Promise.all([refreshAnalytics(), refreshProducts()]);
         }
-        if (location === "/business/users") await refreshUsers();
+        if (location === "/business/users") await Promise.all([refreshUsers(), refreshAccessRequests()]);
       } catch (e) {
         setAuthError(errorText(e));
       }
@@ -267,6 +339,8 @@ export default function BusinessPortal() {
     refreshSales,
     refreshAnalytics,
     refreshUsers,
+    refreshAccessRequests,
+    refreshProductCosts,
   ]);
   useEffect(() => {
     if (
@@ -391,6 +465,13 @@ export default function BusinessPortal() {
       });
       if (error) throw error;
       setCart({});
+      setReceipt({
+        receipt_number: data.receipt_number,
+        created_at: data.created_at ?? new Date().toISOString(),
+        total: data.total,
+        currency_code: data.currency_code,
+        items: data.items ?? [],
+      });
       await Promise.all([
         refreshProducts(),
         refreshSales(),
@@ -425,7 +506,9 @@ export default function BusinessPortal() {
         price: Number(inventoryForm.price),
         currency_code: "PHP",
         inventory: Number(inventoryForm.inventory),
-        reorder_level: Number(inventoryForm.reorder_level),
+        reorder_level: Number(inventoryForm.min_stock),
+        min_stock: Number(inventoryForm.min_stock),
+        max_stock: Number(inventoryForm.max_stock),
         is_active: true,
       });
       if (error) throw error;
@@ -437,6 +520,8 @@ export default function BusinessPortal() {
         price: "",
         inventory: "0",
         reorder_level: "5",
+        min_stock: "5",
+        max_stock: "50",
       });
       await Promise.all([refreshProducts(), refreshDashboard()]);
       setNotice("Product added to inventory.");
@@ -521,6 +606,101 @@ export default function BusinessPortal() {
     }
   };
 
+  const submitAccessRequest = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!supabase) return;
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.rpc("request_business_access", { p_message: requestMessage });
+      if (error) throw error;
+      setAccessRequest({ status: data.status, message: requestMessage });
+      setRequestMessage("");
+      setNotice("Your request was submitted for administrator review.");
+    } catch (e) {
+      setAuthError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const reviewAccessRequest = async (request: AccessRequest, decision: "approve" | "reject") => {
+    if (!supabase) return;
+    setBusy(true);
+    try {
+      const { error } = await supabase.rpc("review_business_access_request", {
+        p_request_id: request.request_id,
+        p_decision: decision,
+        p_role: decision === "approve" ? requestRoles[request.request_id] ?? "inventory_clerk" : null,
+      });
+      if (error) throw error;
+      await Promise.all([refreshUsers(), refreshAccessRequests()]);
+      setNotice(decision === "approve" ? `Approved access for ${request.email}.` : `Rejected access for ${request.email}.`);
+    } catch (e) {
+      setAuthError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveProductCost = async (productId: string, supplierName: string, supplierPrice: string) => {
+    if (!supabase) return;
+    setBusy(true);
+    try {
+      const { error } = await supabase.rpc("upsert_business_product_cost", {
+        p_product_id: productId,
+        p_supplier_name: supplierName,
+        p_supplier_price: Number(supplierPrice),
+      });
+      if (error) throw error;
+      await refreshProductCosts();
+      setNotice("Private supplier pricing saved.");
+    } catch (e) {
+      setAuthError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveStockLevels = async (product: Product, minStock: number, maxStock: number) => {
+    if (!supabase) return;
+    if (minStock < 0 || maxStock < minStock) {
+      setAuthError("Minimum stock must be nonnegative and maximum stock must be at least the minimum.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const { error } = await supabase.from("products").update({ min_stock: minStock, max_stock: maxStock }).eq("id", product.id);
+      if (error) throw error;
+      await Promise.all([refreshProducts(showArchived), refreshDashboard()]);
+      setNotice(`Stock range saved for ${product.title}. Current inventory was not changed.`);
+    } catch (e) {
+      setAuthError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openReceipt = async (sale: Sale) => {
+    if (!supabase) return;
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.from("business_sale_items")
+        .select("product_title,quantity,unit_price,line_total").eq("sale_id", sale.id).order("id");
+      if (error) throw error;
+      setReceipt({
+        receipt_number: sale.receipt_number,
+        created_at: sale.created_at,
+        total: sale.total,
+        currency_code: sale.currency_code,
+        items: data ?? [],
+      });
+    } catch (e) {
+      setAuthError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const page =
     location === "/business/inventory"
       ? "inventory"
@@ -537,7 +717,7 @@ export default function BusinessPortal() {
       item => item.href === location && item.roles.includes(staff.role as never)
     );
   const pageTitles: Record<string, string> = {
-    overview: "Overview",
+    overview: `Welcome, ${greetingName(user?.displayName, user?.email)}`,
     inventory: "Inventory management",
     sales: "Sales transactions",
     analytics: "Knowledge analysis",
@@ -584,12 +764,26 @@ export default function BusinessPortal() {
   if (!staff)
     return (
       <div className="business-config">
-        <p className="eyebrow">Access not assigned</p>
-        <h1>Your account is not a staff account.</h1>
+        <p className="eyebrow">Business workspace access</p>
+        <h1>Welcome, {greetingName(user.displayName, user.email)}.</h1>
         <p>
-          Signed in as <strong>{user.email}</strong>. Ask a Goodstock
-          administrator to assign your role from User management.
+          Signed in as <strong>{user.email}</strong>. Request workspace access below. A staff role is granted only after an administrator or instructor reviews your request.
         </p>
+        {accessRequest?.status === "pending" ? (
+          <div className="business-request-status" role="status">
+            <strong>Request pending review</strong>
+            <span>Your account has no business role until an administrator or instructor approves it.</span>
+          </div>
+        ) : (
+          <form className="business-request-form" onSubmit={submitAccessRequest}>
+            <label htmlFor="business-request-message">Message (optional)</label>
+            <textarea id="business-request-message" maxLength={500} value={requestMessage} onChange={event => setRequestMessage(event.target.value)} placeholder="Tell the team why you need business workspace access." />
+            <button className="button button--accent" disabled={busy}>
+              {accessRequest?.status === "rejected" ? "Resubmit access request" : "Request business access"}
+            </button>
+            {accessRequest?.status === "rejected" && <p>Your previous request was declined. You may submit a new request for review.</p>}
+          </form>
+        )}
         {authError && <p className="business-notice">{authError}</p>}
         <button className="button button--dark" onClick={() => void signOut()}>
           <LogOut size={16} /> Sign out
@@ -648,10 +842,10 @@ export default function BusinessPortal() {
           </Link>
           <div className="business-user">
             <span className="business-avatar">
-              {(user.email ?? "G").slice(0, 1).toUpperCase()}
+              {greetingName(user.displayName, user.email).slice(0, 1).toUpperCase()}
             </span>
             <span>
-              <strong>{user.email}</strong>
+              <strong>{user.displayName || user.email}</strong>
               <small>{roleNames[staff.role]}</small>
             </span>
           </div>
@@ -706,10 +900,10 @@ export default function BusinessPortal() {
           {page === "inventory" && (
             <Inventory
               products={products}
-              canEdit={
-                staff.role === "inventory_clerk" || staff.role === "admin"
-              }
-              canArchive={staff.role === "admin"}
+              canEdit={staff.role === "inventory_clerk" || staff.role === "admin" || staff.role === "instructor"}
+              canArchive={staff.role === "admin" || staff.role === "instructor"}
+              canManageCosts={staff.role === "admin" || staff.role === "instructor"}
+              costs={productCosts}
               showArchived={showArchived}
               setShowArchived={value => {
                 setShowProductForm(false);
@@ -721,6 +915,8 @@ export default function BusinessPortal() {
               setForm={setInventoryForm}
               onSubmit={addProduct}
               onAdjust={adjustInventory}
+              onSaveStock={saveStockLevels}
+              onSaveCost={saveProductCost}
               onSetActive={setProductActive}
               busy={busy}
             />
@@ -732,6 +928,7 @@ export default function BusinessPortal() {
               cart={cart}
               setCart={setCart}
               onCheckout={checkout}
+              onOpenReceipt={openReceipt}
               busy={busy}
             />
           )}
@@ -757,6 +954,10 @@ export default function BusinessPortal() {
           {page === "users" && (
             <UsersPanel
               rows={staffRows}
+              requests={accessRequests}
+              requestRoles={requestRoles}
+              setRequestRoles={setRequestRoles}
+              onReview={reviewAccessRequest}
               email={staffEmail}
               setEmail={setStaffEmail}
               role={staffRole}
@@ -768,6 +969,21 @@ export default function BusinessPortal() {
           )}
         </div>
       </main>
+      {receipt && <ReceiptModal receipt={receipt} onClose={() => setReceipt(null)} />}
+    </div>
+  );
+}
+
+function ReceiptModal({ receipt, onClose }: { receipt: Receipt; onClose: () => void }) {
+  return (
+    <div className="business-receipt-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
+      <section className="business-receipt" role="dialog" aria-modal="true" aria-labelledby="receipt-title">
+        <div className="business-receipt-actions"><button type="button" className="button button--dark" onClick={() => window.print()}><Printer size={16} /> Print receipt</button><button type="button" className="business-receipt-close" aria-label="Close receipt" onClick={onClose}><X size={20} /></button></div>
+        <header><p className="eyebrow">Goodstock Hardware · Point of sale</p><h2 id="receipt-title">Sales receipt</h2><p>{receipt.receipt_number}</p><time dateTime={receipt.created_at}>{new Date(receipt.created_at).toLocaleString()}</time></header>
+        <div className="business-receipt-table-wrap"><table className="business-receipt-table"><thead><tr><th>Item</th><th>Qty</th><th>Unit price</th><th>Line total</th></tr></thead><tbody>{receipt.items.map((item, index) => <tr key={`${item.product_title}-${index}`}><td>{item.product_title}</td><td>{item.quantity}</td><td>{money(item.unit_price, receipt.currency_code)}</td><td>{money(item.line_total, receipt.currency_code)}</td></tr>)}</tbody></table></div>
+        <div className="business-receipt-total"><span>Total</span><strong>{money(receipt.total, receipt.currency_code)}</strong></div>
+        <p className="business-receipt-note">Internal demo sale · no payment collected.</p>
+      </section>
     </div>
   );
 }
@@ -921,7 +1137,7 @@ function Overview({
                   <div>
                     <strong>{p.title}</strong>
                     <small>
-                      Reorder at {p.reorder_level} · SKU {p.sku ?? "—"}
+                      Minimum {p.min_stock} · suggest {p.suggested_replenishment} to reach {p.max_stock} · SKU {p.sku ?? "—"}
                     </small>
                   </div>
                   <span className="business-stock-alert">
@@ -1060,6 +1276,8 @@ function Inventory({
   products,
   canEdit,
   canArchive,
+  canManageCosts,
+  costs,
   showArchived,
   setShowArchived,
   showForm,
@@ -1068,12 +1286,16 @@ function Inventory({
   setForm,
   onSubmit,
   onAdjust,
+  onSaveStock,
+  onSaveCost,
   onSetActive,
   busy,
 }: {
   products: Product[];
   canEdit: boolean;
   canArchive: boolean;
+  canManageCosts: boolean;
+  costs: Record<string, ProductCost>;
   showArchived: boolean;
   setShowArchived: (value: boolean) => void;
   showForm: boolean;
@@ -1082,6 +1304,8 @@ function Inventory({
   setForm: (v: any) => void;
   onSubmit: (e: FormEvent) => void;
   onAdjust: (p: Product, d: number) => void;
+  onSaveStock: (p: Product, min: number, max: number) => void;
+  onSaveCost: (id: string, supplier: string, cost: string) => void;
   onSetActive: (p: Product, isActive: boolean) => void;
   busy: boolean;
 }) {
@@ -1182,16 +1406,25 @@ function Inventory({
             />
           </label>
           <label>
-            Reorder level
+            Minimum stock
             <Input
               required
               type="number"
               min="0"
               step="1"
-              value={form.reorder_level}
-              onChange={e =>
-                setForm({ ...form, reorder_level: e.target.value })
-              }
+              value={form.min_stock}
+              onChange={e => setForm({ ...form, min_stock: e.target.value })}
+            />
+          </label>
+          <label>
+            Maximum stock
+            <Input
+              required
+              type="number"
+              min={form.min_stock}
+              step="1"
+              value={form.max_stock}
+              onChange={e => setForm({ ...form, max_stock: e.target.value })}
             />
           </label>
           <button className="button button--accent" disabled={busy}>
@@ -1207,7 +1440,8 @@ function Inventory({
               <th>SKU</th>
               <th>Price</th>
               <th>In stock</th>
-              <th>Reorder at</th>
+              <th>Min / max · suggested replenishment</th>
+              {canManageCosts && !showArchived && <th>Supplier cost · markup</th>}
               {canEdit && !showArchived && <th>Stock adjustment</th>}
               {canArchive && <th>{showArchived ? "Restore" : "Catalog"}</th>}
             </tr>
@@ -1224,7 +1458,7 @@ function Inventory({
                 <td>
                   <span
                     className={
-                      p.inventory <= p.reorder_level
+                      p.inventory <= p.min_stock
                         ? "business-stock-alert"
                         : "business-stock-ok"
                     }
@@ -1232,7 +1466,16 @@ function Inventory({
                     {p.inventory}
                   </span>
                 </td>
-                <td>{p.reorder_level}</td>
+                <td>
+                  {canEdit && !showArchived ? (
+                    <StockLevelEditor product={p} busy={busy} onSave={onSaveStock} />
+                  ) : (
+                    <span>{p.min_stock} / {p.max_stock}<small>Top up {Math.max(p.max_stock - p.inventory, 0)} units</small></span>
+                  )}
+                </td>
+                {canManageCosts && !showArchived && (
+                  <td><SupplierCostEditor product={p} cost={costs[p.id]} busy={busy} onSave={onSaveCost} /></td>
+                )}
                 {canEdit && !showArchived && (
                   <td>
                     <div className="business-adjust">
@@ -1279,12 +1522,61 @@ function Inventory({
     </>
   );
 }
+function StockLevelEditor({ product, busy, onSave }: {
+  product: Product;
+  busy: boolean;
+  onSave: (product: Product, min: number, max: number) => void;
+}) {
+  const [min, setMin] = useState(String(product.min_stock));
+  const [max, setMax] = useState(String(product.max_stock));
+  useEffect(() => {
+    setMin(String(product.min_stock));
+    setMax(String(product.max_stock));
+  }, [product.id, product.min_stock, product.max_stock]);
+  return (
+    <div className="business-range-editor">
+      <div>
+        <label>Min <input aria-label={`Minimum stock for ${product.title}`} type="number" min="0" value={min} onChange={event => setMin(event.target.value)} /></label>
+        <label>Max <input aria-label={`Maximum stock for ${product.title}`} type="number" min={min} value={max} onChange={event => setMax(event.target.value)} /></label>
+        <button type="button" aria-label={`Save stock range for ${product.title}`} onClick={() => onSave(product, Number(min), Number(max))} disabled={busy || min === "" || max === "" || Number(max) < Number(min)}><Save size={14} /></button>
+      </div>
+      <small>Suggest {suggestedReplenishment(Number(max), product.inventory)} units</small>
+    </div>
+  );
+}
+
+function SupplierCostEditor({ product, cost, busy, onSave }: {
+  product: Product;
+  cost?: ProductCost;
+  busy: boolean;
+  onSave: (id: string, supplier: string, cost: string) => void;
+}) {
+  const [supplier, setSupplier] = useState(cost?.supplier_name ?? "");
+  const [supplierPrice, setSupplierPrice] = useState(cost ? String(cost.supplier_price) : "");
+  useEffect(() => {
+    setSupplier(cost?.supplier_name ?? "");
+    setSupplierPrice(cost ? String(cost.supplier_price) : "");
+  }, [product.id, cost?.supplier_name, cost?.supplier_price]);
+  const markup = calculateMarkup(Number(product.price), Number(supplierPrice));
+  return (
+    <div className="business-cost-editor">
+      <input aria-label={`Supplier name for ${product.title}`} maxLength={200} placeholder="Supplier" value={supplier} onChange={event => setSupplier(event.target.value)} />
+      <div>
+        <input aria-label={`Supplier cost for ${product.title}`} type="number" min="0" step="0.01" placeholder="Cost" value={supplierPrice} onChange={event => setSupplierPrice(event.target.value)} />
+        <button type="button" aria-label={`Save supplier cost for ${product.title}`} onClick={() => onSave(product.id, supplier, supplierPrice)} disabled={busy || supplierPrice === "" || Number(supplierPrice) < 0}><Save size={14} /></button>
+      </div>
+      {supplierPrice !== "" && <small>Markup {money(markup.amount, product.currency_code)} · {markup.percentage === null ? "n/a" : `${markup.percentage.toFixed(2)}%`}</small>}
+    </div>
+  );
+}
+
 function Sales({
   products,
   sales,
   cart,
   setCart,
   onCheckout,
+  onOpenReceipt,
   busy,
 }: {
   products: Product[];
@@ -1292,6 +1584,7 @@ function Sales({
   cart: Record<string, number>;
   setCart: (v: Record<string, number>) => void;
   onCheckout: () => void;
+  onOpenReceipt: (sale: Sale) => void;
   busy: boolean;
 }) {
   const selected = products.filter(p => (cart[p.id] ?? 0) > 0);
@@ -1397,6 +1690,7 @@ function Sales({
                 <tr key={s.id}>
                   <td>
                     <strong>{s.receipt_number}</strong>
+                    <button type="button" className="business-receipt-link" onClick={() => onOpenReceipt(s)} disabled={busy || s.status !== "completed"}>Open / print receipt</button>
                   </td>
                   <td>{new Date(s.created_at).toLocaleString()}</td>
                   <td>
@@ -1759,6 +2053,10 @@ function Analytics({
 }
 function UsersPanel({
   rows,
+  requests,
+  requestRoles,
+  setRequestRoles,
+  onReview,
   email,
   setEmail,
   role,
@@ -1768,6 +2066,10 @@ function UsersPanel({
   busy,
 }: {
   rows: any[];
+  requests: AccessRequest[];
+  requestRoles: Record<string, Role>;
+  setRequestRoles: (value: Record<string, Role>) => void;
+  onReview: (request: AccessRequest, decision: "approve" | "reject") => void;
   email: string;
   setEmail: (v: string) => void;
   role: Role;
@@ -1778,6 +2080,26 @@ function UsersPanel({
 }) {
   return (
     <>
+      <SectionHeading
+        eyebrow="Workspace access"
+        title="Pending access requests"
+        body="Review registered accounts and choose a staff role before approving. Requests alone never grant access."
+      />
+      <div className="business-card business-table-wrap">
+        <table className="business-table">
+          <thead><tr><th>Account / request</th><th>Role on approval</th><th>Review</th></tr></thead>
+          <tbody>
+            {requests.map(request => (
+              <tr key={request.request_id}>
+                <td><strong>{request.email}</strong><small>{request.display_name || "No profile name"} · {new Date(request.requested_at).toLocaleString()} · {request.message || "No message"}</small></td>
+                <td><select aria-label={`Role for ${request.email}`} value={requestRoles[request.request_id] ?? "inventory_clerk"} onChange={event => setRequestRoles({ ...requestRoles, [request.request_id]: event.target.value as Role })}>{roleOptions.map(option => <option key={option} value={option}>{roleNames[option]}</option>)}</select></td>
+                <td><div className="business-review-actions"><button type="button" className="business-review-approve" onClick={() => onReview(request, "approve")} disabled={busy}>Approve</button><button type="button" className="business-remove" onClick={() => onReview(request, "reject")} disabled={busy}>Reject</button></div></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {!requests.length && <p className="business-muted">No pending access requests.</p>}
+      </div>
       <SectionHeading
         eyebrow="Access control"
         title="Manage staff roles"

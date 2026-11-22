@@ -21,8 +21,8 @@ The browser uses `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`. Server
 ## Supabase schema and roles
 
 1. Apply `supabase/schema.sql` in the Supabase SQL Editor. Apply `supabase/catalog_expansion.sql` when using its curated demo products.
-2. Apply `supabase/business-app.sql`. This creates the business sales/model tables, shared inventory columns, security policies and role-checked database functions, including safe product archive/restore.
-3. If the project already applied an earlier version of `business-app.sql`, apply `supabase/archive_business_products.sql` to add the admin-only archive/restore RPC. It is additive and safe to rerun; new installs already include it in `business-app.sql`.
+2. Apply `supabase/business-app.sql`. This creates business sales and itemized receipts, shared inventory fields, access requests, private supplier-cost storage, security policies and role-checked functions, including safe product archive/restore.
+3. For an existing project already using an older business schema, apply any missing `supabase/archive_business_products.sql` and `supabase/dashboard_storefront_demo_orders.sql` migrations first, then apply `supabase/business_operations_features.sql`. It adds min/max stock ranges, request review, instructor admin-equivalent permissions, supplier-cost RPCs, and itemized receipt results. The current full schema already includes these capabilities.
 4. Create an account at `/account`. To bootstrap the first admin, run the SQL below in the Supabase SQL Editor after replacing the example address with the account’s sign-in email:
 
    ```sql
@@ -32,13 +32,15 @@ The browser uses `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`. Server
    on conflict (user_id) do update set role = excluded.role, updated_at = now();
    ```
 
-5. Sign in at `/account`, open `/business`, and add existing Supabase accounts with their business role through **User management**. Users must have registered before they can receive a staff role.
+5. Sign in at `/account` and open `/business`. A registered user without a role can submit an access request. An admin or instructor must review it and choose a role; requesting access never creates an Auth account or grants a role, and rejected users may resubmit. Admins/instructors can also assign roles directly to existing accounts from **User management**.
 
-The available roles are inventory clerk, sales personnel, admin and instructor. Supabase RLS and checked RPC functions enforce access in the database; hiding a menu item is not the security boundary. No service-role key is needed or safe in the browser.
+The available roles are inventory clerk, sales personnel, admin and instructor. Instructors receive the complete admin workspace, including inventory, sales, archive/restore and user/access administration. Supplier costs are stored separately from public selling prices and exposed only to admins/instructors through checked RPCs. Minimum/maximum stock targets drive low-stock alerts and a suggested top-up; stock is not adjusted automatically. Supabase RLS and checked RPC functions enforce access in the database; hiding a menu item is not the security boundary. No service-role key is needed or safe in the browser.
 
 ## Model data
 
-The instructor analytics screen trains Simple Linear Regression and Random Forest Regression from `data/demand-sales-1200.csv` (1,200 synthetic records). Evaluation uses the first 960 records for training and the last 240 for a chronological holdout. Model artifacts and metrics are versioned in Supabase. Admins can request predictions from saved models; only instructors can access model training, the dataset preview/download and evaluation metrics. The dataset is illustrative and is not real sales history.
+The Knowledge Analysis screen is available to admins and instructors. Instructors can train Simple Linear Regression and Random Forest Regression from `data/demand-sales-1200.csv` (1,200 synthetic records); evaluation uses the first 960 records for training and the last 240 for a chronological holdout. Model artifacts and metrics are versioned in Supabase. Both roles can request predictions from saved models; only instructors can access model training, the dataset preview/download and evaluation metrics. The dataset is illustrative and is not real sales history.
+
+Completed point-of-sale receipts show item, quantity, unit price, line total, sale time and overall total. They can be reopened from sales history and printed.
 
 ## Verify and build
 

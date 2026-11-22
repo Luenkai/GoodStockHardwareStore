@@ -1,12 +1,13 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Menu, Search, ShoppingBag, UserRound, X } from "lucide-react";
+import { ArrowRight, Menu, Moon, Search, ShoppingBag, Sun, UserRound, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useDemoCart } from "@/lib/cart";
+import { useTheme } from "@/contexts/ThemeContext";
 
 function Logo() {
   return (
-    <Link href="/" className="brand-lockup" aria-label="Goodstock Hardware home">
+    <Link href="/store" className="brand-lockup" aria-label="Goodstock Hardware home">
       <img src="/brand-mark.svg" width="42" height="42" alt="" />
       <span>goodstock<span className="brand-lockup__descriptor">hardware</span></span>
     </Link>
@@ -19,6 +20,7 @@ export function StoreHeader() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [term, setTerm] = useState("");
   const cart = useDemoCart();
+  const { theme, toggleTheme } = useTheme();
   const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const menuToggleRef = useRef<HTMLButtonElement>(null);
   const searchToggleRef = useRef<HTMLButtonElement>(null);
@@ -74,6 +76,9 @@ export function StoreHeader() {
           <Link href="/account" className="icon-button account-link" aria-label="Your account">
             <UserRound size={20} strokeWidth={1.8} />
           </Link>
+          <button type="button" className="icon-button theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`} title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}>
+            {theme === "dark" ? <Sun size={19} /> : <Moon size={19} />}
+          </button>
           <Link href="/cart" className="icon-button cart-link" aria-label={`Your cart${itemCount ? `, ${itemCount} items` : ""}`}>
             <ShoppingBag size={20} strokeWidth={1.8} />
             {itemCount > 0 && <span className="cart-count" aria-hidden="true">{itemCount > 99 ? "99+" : itemCount}</span>}

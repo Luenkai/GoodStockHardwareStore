@@ -1,7 +1,8 @@
 import { ArrowRight, Box, ClipboardList, LayoutDashboard, LoaderCircle, LogOut, ShieldCheck } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import StoreLayout from "@/components/store/StoreLayout";
+import CustomerProfile from "@/components/store/CustomerProfile";
 import { supabase } from "@/lib/supabase";
 import { formatMoney } from "@/lib/storefront";
 import type { User } from "@supabase/supabase-js";
@@ -15,6 +16,7 @@ type AccountOrder = {
 };
 
 export default function Account() {
+  const [, setLocation] = useLocation();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(Boolean(supabase));
   const [busy, setBusy] = useState(false);
@@ -27,6 +29,7 @@ export default function Account() {
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState("");
   const [businessRole, setBusinessRole] = useState<string | null>(null);
+  const [profileDisplayName, setProfileDisplayName] = useState("");
 
   useEffect(() => {
     if (!supabase) return;
@@ -75,6 +78,17 @@ export default function Account() {
     return () => { active = false; };
   }, [user]);
 
+  useEffect(() => {
+    if (!supabase || !user) {
+      setProfileDisplayName("");
+      return;
+    }
+    let active = true;
+    void supabase.from("profiles").select("display_name").eq("id", user.id).maybeSingle()
+      .then(({ data }) => { if (active) setProfileDisplayName(data?.display_name?.trim() ?? ""); });
+    return () => { active = false; };
+  }, [user]);
+
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!supabase) return;
@@ -85,10 +99,15 @@ export default function Account() {
       : await supabase.auth.signInWithPassword({ email, password });
     setBusy(false);
     if (result.error) setMessage(result.error.message);
-    else setMessage(mode === "sign-up" ? "Account created. Check your email if confirmation is enabled." : "Signed in.");
+    else if (result.data.user && mode === "sign-in") {
+      const { data: staff } = await supabase.from("business_staff").select("role").eq("user_id", result.data.user.id).maybeSingle();
+      if (staff?.role) setLocation("/business");
+      else setMessage("Signed in.");
+    } else setMessage("Account created. Check your email if confirmation is enabled.");
   };
 
   const signOut = async () => { if (supabase) await supabase.auth.signOut(); };
+  const accountName = profileDisplayName || String(user?.user_metadata?.display_name || user?.user_metadata?.full_name || user?.email?.split("@")[0] || "there").replace(/[._-]+/g, " ").split(/\s+/)[0];
 
   return (
     <StoreLayout>
@@ -97,18 +116,19 @@ export default function Account() {
           <div className="account-card__visual" aria-hidden="true"><div className="account-card__orbit account-card__orbit--one" /><div className="account-card__orbit account-card__orbit--two" /><div className="account-card__icon"><Box size={34} strokeWidth={1.5} /></div></div>
           <div className="account-card__content">
             <p className="eyebrow">Your Goodstock account</p>
-            <h1>Sign in to place demo orders and view your history.</h1>
+            <h1>{user ? `Welcome back, ${accountName}.` : "Sign in to place demo orders and view your history."}</h1>
             {!supabase ? <p className="account-error" role="alert">Supabase is not configured in this deployment yet.</p> : loading ? <div className="skeleton account-skeleton" aria-busy="true"><span className="sr-only" role="status" aria-live="polite">Checking your account…</span></div> : user ? (
               <div className="account-session">
                 <p>Signed in as <strong>{user.email}</strong>.</p>
-                {businessRole === "admin" && (
+                {(businessRole === "admin" || businessRole === "instructor") && (
                   <Link href="/business" className="account-business-switch">
                     <span className="account-business-switch__icon"><LayoutDashboard size={19} aria-hidden="true" /></span>
-                    <span className="account-business-switch__copy"><strong>Switch to business management</strong><small>Open the admin workspace</small></span>
+                    <span className="account-business-switch__copy"><strong>Switch to business management</strong><small>Open the {businessRole === "instructor" ? "instructor" : "admin"} workspace</small></span>
                     <ArrowRight size={18} aria-hidden="true" />
                   </Link>
                 )}
                 <button type="button" className="button button--accent" onClick={() => void signOut()}><LogOut size={17} /> Sign out</button>
+                <CustomerProfile user={user} />
                 <section className="account-orders" aria-labelledby="account-orders-title">
                   <div className="account-orders__heading"><h2 id="account-orders-title">Recent demo orders</h2><span>Latest 10</span></div>
                   {ordersLoading ? <div className="skeleton account-orders__skeleton" aria-busy="true"><span className="sr-only" role="status" aria-live="polite">Loading order history…</span></div> : ordersError ? <p className="account-error" role="alert">Orders could not load. {ordersError}</p> : orders.length === 0 ? <p className="account-orders__empty">No demo orders yet. Your orders will appear here after checkout.</p> : (
