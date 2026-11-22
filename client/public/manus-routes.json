@@ -1,0 +1,10 @@
+{
+  "routes": [
+    { "path": "/", "title": "Goodstock Hardware" },
+    { "path": "/products", "title": "Shop all hardware" },
+    { "path": "/products/:handle", "title": "Product details" },
+    { "path": "/cart", "title": "Your cart" },
+    { "path": "/account", "title": "Your account" },
+    { "path": "/404", "title": "Page not found" }
+  ]
+}

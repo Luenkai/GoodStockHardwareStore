@@ -1,0 +1,108 @@
+import { useSyncExternalStore } from "react";
+import type { StoreProduct } from "./storefront";
+
+export type DemoCartItem = {
+  product: StoreProduct;
+  quantity: number;
+};
+
+const STORAGE_KEY = "goodstock_demo_cart";
+const EVENT_NAME = "goodstock-cart-updated";
+
+let memoryFallbackRaw = "[]";
+
+function parseCart(raw: string): DemoCartItem[] {
+  try {
+    const value = JSON.parse(raw);
+    return Array.isArray(value) ? value : [];
+  } catch {
+    return [];
+  }
+}
+
+function safeReadRaw(): string {
+  try {
+    if (typeof window !== "undefined") {
+      const stored = window.localStorage.getItem(STORAGE_KEY);
+      if (stored !== null) {
+        memoryFallbackRaw = stored;
+        return stored;
+      }
+    }
+  } catch {
+    // Fall back to in-memory cart snapshot when localStorage throws.
+  }
+  return memoryFallbackRaw;
+}
+
+function readCart(): DemoCartItem[] {
+  return parseCart(safeReadRaw());
+}
+
+let cachedSnapshotRaw: string | null = null;
+let cachedSnapshot: DemoCartItem[] = [];
+const EMPTY_SERVER_CART: DemoCartItem[] = [];
+
+function getCartSnapshot(): DemoCartItem[] {
+  const raw = safeReadRaw();
+  if (raw !== cachedSnapshotRaw) {
+    cachedSnapshotRaw = raw;
+    cachedSnapshot = parseCart(raw);
+  }
+  return cachedSnapshot;
+}
+
+function writeCart(items: DemoCartItem[]): void {
+  const raw = JSON.stringify(items);
+  memoryFallbackRaw = raw;
+  try {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(STORAGE_KEY, raw);
+    }
+  } catch {
+    // Keep cart in memory when storage is unavailable.
+  }
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(EVENT_NAME));
+  }
+}
+
+export function addToCart(product: StoreProduct, quantity = 1): void {
+  const items = readCart();
+  const existing = items.find(item => item.product.id === product.id);
+  if (existing) existing.quantity = Math.min(99, existing.quantity + quantity);
+  else items.push({ product, quantity: Math.min(99, Math.max(1, quantity)) });
+  writeCart(items);
+}
+
+export function updateCartQuantity(productId: string, quantity: number): void {
+  const items = readCart().map(item =>
+    item.product.id === productId
+      ? { ...item, quantity: Math.min(99, Math.max(1, quantity)) }
+      : item,
+  );
+  writeCart(items);
+}
+
+export function removeFromCart(productId: string): void {
+  writeCart(readCart().filter(item => item.product.id !== productId));
+}
+
+export function clearCart(): void {
+  writeCart([]);
+}
+
+export function useDemoCart(): DemoCartItem[] {
+  return useSyncExternalStore(
+    callback => {
+      window.addEventListener(EVENT_NAME, callback);
+      window.addEventListener("storage", callback);
+      return () => {
+        window.removeEventListener(EVENT_NAME, callback);
+        window.removeEventListener("storage", callback);
+      };
+    },
+    getCartSnapshot,
+    () => EMPTY_SERVER_CART,
+  );
+}

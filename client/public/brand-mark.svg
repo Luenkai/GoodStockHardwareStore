@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72" role="img" aria-labelledby="title">
+  <title id="title">Goodstock Hardware mark</title>
+  <rect width="72" height="72" rx="20" fill="#24352F"/>
+  <path d="M25 10h22l15 15v22L47 62H25L10 47V25z" fill="none" stroke="#F4F0E6" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M36 19v13M36 40v13M19 36h13M40 36h13" stroke="#E56B3F" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="36" cy="36" r="6" fill="#E56B3F"/>
+</svg>

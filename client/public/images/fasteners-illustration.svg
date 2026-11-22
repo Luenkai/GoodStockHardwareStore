@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="480" viewBox="0 0 600 480" role="img" aria-labelledby="title desc">
+  <title id="title">Fasteners illustration</title>
+  <desc id="desc">Generic illustration of a bolt, washer, and nut on a warm neutral background.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f1efe4"/><stop offset="1" stop-color="#dce5d9"/></linearGradient>
+    <linearGradient id="steel" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f8faf8"/><stop offset=".48" stop-color="#9daaa3"/><stop offset="1" stop-color="#596961"/></linearGradient>
+    <filter id="shadow" x="-.2" y="-.2" width="1.4" height="1.5"><feDropShadow dx="0" dy="18" stdDeviation="14" flood-color="#20332a" flood-opacity=".18"/></filter>
+  </defs>
+  <rect width="600" height="480" rx="34" fill="url(#bg)"/>
+  <circle cx="465" cy="93" r="70" fill="#fff" opacity=".26"/>
+  <g filter="url(#shadow)" transform="rotate(-24 290 245)">
+    <rect x="272" y="138" width="55" height="220" rx="22" fill="url(#steel)"/>
+    <path d="M272 208h55M272 236h55M272 264h55M272 292h55M272 320h55" stroke="#52635a" stroke-width="7" opacity=".75"/>
+    <path d="M248 130 300 95l52 35v43l-52 34-52-34z" fill="url(#steel)" stroke="#5f7067" stroke-width="4"/>
+    <path d="M300 95v112M248 130l52 34 52-34" fill="none" stroke="#f9fbf9" stroke-width="5" opacity=".72"/>
+  </g>
+  <g filter="url(#shadow)" transform="rotate(20 423 292)">
+    <circle cx="425" cy="287" r="66" fill="url(#steel)" stroke="#6a7b71" stroke-width="5"/>
+    <circle cx="425" cy="287" r="30" fill="#dfe7e2" stroke="#708179" stroke-width="6"/>
+    <path d="M382 238c22-20 53-25 78-13" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" opacity=".78"/>
+  </g>
+  <g filter="url(#shadow)" transform="rotate(-12 165 342)">
+    <path d="M128 315 160 296l32 19v38l-32 19-32-19z" fill="url(#steel)" stroke="#63736b" stroke-width="4"/>
+    <path d="M160 296v76M128 315l32 19 32-19" fill="none" stroke="#f8faf8" stroke-width="4" opacity=".7"/>
+  </g>
+  <path d="M75 402h450" stroke="#65786c" stroke-width="2" opacity=".18"/>
+</svg>

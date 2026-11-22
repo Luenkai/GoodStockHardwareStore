@@ -1,0 +1,13 @@
+# Storefront data and platform sources
+
+## Product records
+
+The two original starter listings in `hardware-seed.json` use product metadata selected from the [Shopify Product Catalogue dataset](https://huggingface.co/datasets/Shopify/product-catalogue), whose dataset card reports Apache-2.0. This is a dataset source only; the website does not connect to a Shopify store or API. The starter records are a sheet-metal screw listing and an LM317 regulator listing. Their PHP prices and inventory are editable demo values, not dataset facts. The bundled representative product photos still need merchant-owned replacements or explicit rights review before any real commercial launch.
+
+The ten additional listings in `qte-catalog-expansion.json` are curated from the English September 20, 2026 snapshot in Nguyen Huu, Tuan (2026), “QTE Technologies Industrial & Scientific Product Catalog (1M+ Items) - Multilingual Dataset,” Mendeley Data, Version 7, DOI [10.17632/hr2ysn26ys.7](https://doi.org/10.17632/hr2ysn26ys.7), licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The selected source record IDs and source product URLs are retained in that JSON file. Product names and specifications have been normalized for readability; source descriptions and identifiers are adapted from the dataset. The subset covers washers, screwdrivers, pliers, measuring tape, a wrench, insulation tape, a fuse, a relay, and a circuit breaker.
+
+The source feed's price currency is not stated and its availability field frequently says “preorder,” so source prices and availability are not imported. All displayed PHP prices and inventory quantities in the added records are illustrative demo values, not retail offers or verified stock. The source's linked supplier photographs are not reused; the added records use original generic category illustrations that are not exact product photos. Electrical compatibility and all specifications must be verified against manufacturer documentation before real sale.
+
+## Platform and data flow
+
+Supabase is the catalog and authentication source of truth. Active product rows are read from `public.products`; the browser demo cart uses local storage; demo checkout inserts records into `public.orders` and `public.order_items`; account sign-in and recent order history use Supabase Auth and row-level security. The backend falls back to a read-only local preview if Supabase is not configured, and curated records missing from the database appear as non-purchasable previews until seeded. Only publishable/anon Supabase credentials may be passed to the browser; a service-role key must never be exposed. The application does not use Shopify services, does not process payment, and is not ready for real orders.

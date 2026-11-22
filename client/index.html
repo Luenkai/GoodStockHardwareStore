@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f6f5f0" />
+    <script>
+      (function () {
+        try {
+          var stored = window.localStorage.getItem("theme");
+          var prefersDark =
+            typeof window.matchMedia === "function" &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches;
+          var isDark =
+            stored === "dark" || (stored === "system" && prefersDark);
+          document.documentElement.classList.toggle("dark", isDark);
+          document.documentElement.style.colorScheme = isDark ? "dark" : "light";
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute("content", isDark ? "#0e1311" : "#f6f5f0");
+        } catch (_err) {
+          /* Ignore storage errors in restricted browser environments */
+        }
+      })();
+    </script>
+    <meta name="description" content="Browse fasteners, practical hand tools, and electrical essentials from Goodstock Hardware." />
+    <meta property="og:title" content="Goodstock Hardware — Build the fix. Make it last." />
+    <meta property="og:description" content="Reliable fasteners, practical hand tools, and electrical essentials for everyday repairs." />
+    <meta property="og:type" content="website" />
+    <link rel="icon" type="image/svg+xml" href="/brand-mark.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <title>Goodstock Hardware — Build the fix. Make it last.</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script src="/api/platform/config.js"></script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
