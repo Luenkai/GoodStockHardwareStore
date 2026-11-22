@@ -785,3 +785,62 @@ main { flex: 1; }
 .dark .account-benefits>div { border-color:var(--line); }
 .dark .business-banner { background:#27352d; color:#dce8dc; }
 @media(max-width:600px){.entry-page{padding:20px}.entry-card{padding:28px 22px}.entry-actions{display:grid}.customer-profile{padding:17px}.customer-profile__form{grid-template-columns:1fr}.customer-profile__form h3,.customer-profile__form button,.customer-profile__notice{grid-column:auto}}
+
+/* Figma alignment: deep-green command rail, cream workspace surfaces, and
+   orange actions across the responsive operations experience. */
+@media (min-width: 1120px) {
+  .product-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+.business-shell {
+  grid-template-columns: 248px minmax(0, 1fr);
+  background: #f1eee5;
+}
+.business-sidebar {
+  padding: 25px 16px 17px;
+  border-right: 0;
+  background: #223b31;
+  color: #f2efe5;
+  box-shadow: 12px 0 28px rgba(28, 47, 38, 0.08);
+}
+.business-brand { color: #f5f1e7; }
+.business-brand small { color: #b8c8bb; }
+.business-sidebar__label { color: #9fb3a5; }
+.business-sidebar nav a,
+.business-side-back,
+.business-signout { color: #c8d4c9; }
+.business-sidebar nav a:hover,
+.business-side-back:hover,
+.business-signout:hover { background: rgba(255,255,255,.09); color: #f29a6c; }
+.business-sidebar nav a.is-active { background: #ec7047; color: #fffaf1; box-shadow: 0 8px 20px rgba(190, 75, 39, .2); }
+.business-user { border-color: rgba(231, 239, 228, .16); }
+.business-user small { color: #aebdaf; }
+.business-avatar { background: #d8e3d5; color: #223b31; }
+.business-main { background: #f1eee5; }
+.business-topbar {
+  min-height: 92px;
+  border-bottom-color: #d9ddd4;
+  background: rgba(255,254,250,.86);
+}
+.business-topbar__kicker { color: #819087; }
+.business-role-pill { border-color: #d9ddd4; background: #f8f6ef; }
+.business-content { padding-top: 31px; }
+.business-card,
+.business-stat,
+.business-model-card { box-shadow: 0 5px 18px rgba(36,53,47,.035); }
+.business-section-heading h2,
+.business-model-card h3,
+.business-train-card h3,
+.business-predict-form h3,
+.business-results h3 { letter-spacing: -.06em; }
+
+.dark .business-shell,
+.dark .business-main { background: #141b18; }
+.dark .business-sidebar { background: #10251d; }
+.dark .business-sidebar nav a,
+.dark .business-side-back,
+.dark .business-signout { color: #d6e2d6; }
+.dark .business-sidebar nav a:hover,
+.dark .business-side-back:hover,
+.dark .business-signout:hover { background: rgba(255,255,255,.09); color: #f2a080; }
+.dark .business-sidebar nav a.is-active { background: #d9683e; color: #fff; }
