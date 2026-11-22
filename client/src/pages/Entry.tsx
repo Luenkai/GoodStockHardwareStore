@@ -1,38 +1,83 @@
-import { ArrowRight, Moon, Sun, Wrench } from "lucide-react";
-import { useEffect, useState } from "react";
-import { Link, useLocation } from "wouter";
-import { supabase } from "@/lib/supabase";
-import { useTheme } from "@/contexts/ThemeContext";
+import { ArrowRight, BarChart3, ShieldCheck, ShoppingBag, Store, Wrench } from "lucide-react";
+import { Link } from "wouter";
+import { ThemeToggleButton } from "@/components/store/GoodstockControls";
 
 export default function Entry() {
-  const [, setLocation] = useLocation();
-  const { theme, toggleTheme } = useTheme();
-  const [checking, setChecking] = useState(Boolean(supabase));
+  return (
+    <main className="entry-shell" data-inert-target="true">
+      <div className="page-width entry-shell__inner">
+        <div className="entry-topbar">
+          <div className="gs-wordmark">
+            <span className="gs-wordmark__name">goodstock</span>
+            <span className="gs-wordmark__sub">HARDWARE</span>
+          </div>
+          <ThemeToggleButton />
+        </div>
 
-  useEffect(() => {
-    if (!supabase) { setChecking(false); return; }
-    let active = true;
-    void supabase.auth.getSession().then(async ({ data }) => {
-      const user = data.session?.user;
-      if (!user) { if (active) setChecking(false); return; }
-      const { data: staff } = await supabase!.from("business_staff").select("role").eq("user_id", user.id).maybeSingle();
-      if (!active) return;
-      if (staff?.role) setLocation("/business");
-      else setLocation("/products");
-    });
-    return () => { active = false; };
-  }, [setLocation]);
+        <header className="entry-hero">
+          <p className="gs-eyebrow">UNIFIED PLATFORM</p>
+          <h1 className="gs-display-title">Choose your workspace.</h1>
+          <p className="entry-lead">
+            Shop the customer catalog or sign in to the staff workspace for inventory, point-of-sale receipts, and demand forecasting.
+          </p>
+        </header>
 
-  return <main className="entry-page">
-    <div className="entry-top"><img src="/brand-mark.svg" width="44" height="44" alt="" /><span>goodstock <small>hardware</small></span><button type="button" className="theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}>{theme === "dark" ? <Sun size={18}/> : <Moon size={18}/>}</button></div>
-    <section className="entry-card">
-      <div className="entry-mark"><Wrench size={28}/></div>
-      <p className="eyebrow">Goodstock Hardware</p>
-      <h1>Good tools.<br/><span>Clear choices.</span></h1>
-      <p className="entry-copy">Sign in to see your account and orders, or continue into the storefront to browse hardware.</p>
-      {checking ? <p role="status">Checking your session…</p> : <div className="entry-actions"><Link className="button button--accent" href="/account">Sign in or create account <ArrowRight size={18}/></Link><Link className="button button--dark" href="/products">Continue to storefront</Link></div>}
-      <p className="entry-note">Staff accounts open directly in the business workspace after sign-in.</p>
-    </section>
-    <p className="entry-foot">Everyday hardware for the work ahead.</p>
-  </main>;
+        <section className="entry-grid" aria-label="Application portals">
+          <article className="gs-card entry-card">
+            <div className="entry-card__icon" aria-hidden="true">
+              <Store size={24} />
+            </div>
+            <p className="gs-eyebrow">PUBLIC DEMO STOREFRONT</p>
+            <h2>Customer Storefront</h2>
+            <p>
+              Browse fasteners, hand tools, and electrical parts, build a project cart, and save demo orders with your account.
+            </p>
+            <ul className="entry-card__list">
+              <li>
+                <ShoppingBag size={16} aria-hidden="true" /> Live and preview hardware catalog
+              </li>
+              <li>
+                <Wrench size={16} aria-hidden="true" /> Project cart, account details, and order history
+              </li>
+            </ul>
+            <div className="entry-card__actions">
+              <Link className="gs-btn gs-btn--primary" href="/store">
+                Open storefront <ArrowRight size={17} aria-hidden="true" />
+              </Link>
+              <Link className="gs-text-link" href="/products">
+                Browse all products <ArrowRight size={15} aria-hidden="true" />
+              </Link>
+            </div>
+          </article>
+
+          <article className="gs-card entry-card entry-card--business">
+            <div className="entry-card__icon" aria-hidden="true">
+              <BarChart3 size={24} />
+            </div>
+            <p className="gs-eyebrow">STAFF WORKSPACE</p>
+            <h2>Business Portal</h2>
+            <p>
+              Manage shared inventory, record employee point-of-sale transactions, review access requests, and run ML demand analysis.
+            </p>
+            <ul className="entry-card__list">
+              <li>
+                <ShieldCheck size={16} aria-hidden="true" /> Role-based access for staff, clerks, and admins
+              </li>
+              <li>
+                <BarChart3 size={16} aria-hidden="true" /> Reorder watch, supplier margins, and forecasting
+              </li>
+            </ul>
+            <div className="entry-card__actions">
+              <Link className="gs-btn gs-btn--secondary" href="/business">
+                Open business portal <ArrowRight size={17} aria-hidden="true" />
+              </Link>
+              <Link className="gs-text-link" href="/account">
+                Sign in first <ArrowRight size={15} aria-hidden="true" />
+              </Link>
+            </div>
+          </article>
+        </section>
+      </div>
+    </main>
+  );
 }

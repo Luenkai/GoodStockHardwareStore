@@ -1,150 +1,262 @@
-import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Menu, Moon, Search, ShoppingBag, Sun, UserRound, X } from "lucide-react";
-import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
-import { Link, useLocation } from "wouter";
+import { ArrowRight, ArrowUpRight, Menu, Search, ShoppingBag, User, X } from "lucide-react";
+import { FormEvent, ReactNode, useEffect, useState } from "react";
+import { Link, useLocation, useSearch } from "wouter";
 import { useDemoCart } from "@/lib/cart";
+import { ThemeToggleButton } from "@/components/store/GoodstockControls";
 import { useTheme } from "@/contexts/ThemeContext";
 
-function Logo() {
-  return (
-    <Link href="/store" className="brand-lockup" aria-label="Goodstock Hardware home">
-      <img src="/brand-mark.svg" width="42" height="42" alt="" />
-      <span>goodstock<span className="brand-lockup__descriptor">hardware</span></span>
-    </Link>
-  );
-}
-
-export function StoreHeader() {
-  const [location, setLocation] = useLocation();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [term, setTerm] = useState("");
-  const cart = useDemoCart();
-  const { theme, toggleTheme } = useTheme();
-  const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const menuToggleRef = useRef<HTMLButtonElement>(null);
-  const searchToggleRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    setMenuOpen(false);
-    setSearchOpen(false);
-  }, [location]);
-
-  useEffect(() => {
-    if (!menuOpen && !searchOpen) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setMenuOpen(false);
-        setSearchOpen(false);
-        (menuOpen ? menuToggleRef.current : searchToggleRef.current)?.focus();
-      }
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [menuOpen, searchOpen]);
-
-  const submitSearch = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const value = term.trim();
-    setSearchOpen(false);
-    setMenuOpen(false);
-    setLocation(value ? `/products?q=${encodeURIComponent(value)}` : "/products");
-  };
-
-  const closeMenu = () => setMenuOpen(false);
-  return (
-    <>
-    <header className="store-header">
-      <a className="skip-link" href="#main-content">Skip to products</a>
-      <div className="store-header__inner">
-        <Logo />
-        <nav className="desktop-nav" aria-label="Main navigation">
-          <Link href="/products" aria-current={location === "/products" ? "page" : undefined}>Shop all</Link>
-          <Link href="/products#fasteners">Fasteners</Link>
-          <Link href="/products#tools">Tools</Link>
-          <Link href="/products#power-electrical">Power &amp; electrical</Link>
-        </nav>
-        <div className="header-actions">
-          <form className="header-search" role="search" onSubmit={submitSearch}>
-            <Search size={17} strokeWidth={1.8} aria-hidden="true" />
-            <label className="visually-hidden" htmlFor="header-search">Search products</label>
-            <input id="header-search" value={term} onChange={event => setTerm(event.target.value)} placeholder="Search hardware" />
-          </form>
-          <button ref={searchToggleRef} className="icon-button mobile-search-toggle" type="button" aria-label={searchOpen ? "Close search" : "Search products"} aria-expanded={searchOpen} onClick={() => { setSearchOpen(open => !open); setMenuOpen(false); }}>
-            {searchOpen ? <X size={20} /> : <Search size={20} />}
-          </button>
-          <Link href="/account" className="icon-button account-link" aria-label="Your account">
-            <UserRound size={20} strokeWidth={1.8} />
-          </Link>
-          <button type="button" className="icon-button theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`} title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}>
-            {theme === "dark" ? <Sun size={19} /> : <Moon size={19} />}
-          </button>
-          <Link href="/cart" className="icon-button cart-link" aria-label={`Your cart${itemCount ? `, ${itemCount} items` : ""}`}>
-            <ShoppingBag size={20} strokeWidth={1.8} />
-            {itemCount > 0 && <span className="cart-count" aria-hidden="true">{itemCount > 99 ? "99+" : itemCount}</span>}
-          </Link>
-          <button ref={menuToggleRef} className="icon-button mobile-menu-toggle" type="button" aria-label={menuOpen ? "Close navigation" : "Open navigation"} aria-expanded={menuOpen} onClick={() => { setMenuOpen(open => !open); setSearchOpen(false); }}>
-            {menuOpen ? <X size={21} /> : <Menu size={21} />}
-          </button>
-        </div>
-      </div>
-      <AnimatePresence>
-        {searchOpen && (
-          <motion.form id="mobile-search-panel" className="mobile-search-panel" role="search" onSubmit={submitSearch} initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.18 }}>
-            <label className="visually-hidden" htmlFor="mobile-search">Search products</label>
-            <input id="mobile-search" autoFocus value={term} onChange={event => setTerm(event.target.value)} placeholder="What are you looking for?" />
-            <button className="button button--dark button--compact" type="submit" aria-label="Submit search"><ArrowRight size={18} /></button>
-          </motion.form>
-        )}
-      </AnimatePresence>
-      <AnimatePresence>
-        {menuOpen && (
-          <motion.nav id="mobile-navigation" className="mobile-nav" aria-label="Mobile navigation" initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }}>
-            <Link href="/products" onClick={closeMenu}>Shop all hardware</Link>
-            <Link href="/products#fasteners" onClick={closeMenu}>Fasteners</Link>
-            <Link href="/products#tools" onClick={closeMenu}>Tools</Link>
-            <Link href="/products#power-electrical" onClick={closeMenu}>Power &amp; electrical</Link>
-            <Link href="/account" onClick={closeMenu}>Orders &amp; account</Link>
-          </motion.nav>
-        )}
-      </AnimatePresence>
-    </header>
-    {(menuOpen || searchOpen) && <button className="mobile-panel-backdrop" type="button" tabIndex={-1} aria-label="Close menu and search" onClick={() => {
-      const toggle = menuOpen ? menuToggleRef.current : searchToggleRef.current;
-      setMenuOpen(false);
-      setSearchOpen(false);
-      toggle?.focus();
-    }} />}
-    </>
-  );
-}
-
-export function StoreFooter() {
-  return (
-    <footer className="store-footer">
-      <div className="store-footer__inner">
-        <Logo />
-        <p>Good tools. Clear choices. Back to the work.</p>
-        <div className="store-footer__links">
-          <Link href="/products">Shop hardware</Link>
-          <Link href="/account">Orders &amp; account</Link>
-          <Link href="/business">Staff portal</Link>
-          <Link href="/cart">Cart</Link>
-          <a href="/image-credits.html">Image credits</a>
-        </div>
-        <span className="store-footer__copyright">© {new Date().getFullYear()} Goodstock Hardware</span>
-      </div>
-    </footer>
-  );
-}
+const SHOP_CATEGORIES = [
+  { label: "Shop all", href: "/products", key: "all" },
+  { label: "Fasteners", href: "/products?category=Fasteners", key: "fasteners" },
+  { label: "Tools", href: "/products?category=Tools", key: "tools" },
+  {
+    label: "Power & electrical",
+    href: "/products?category=Power%20%26%20Electrical",
+    key: "power & electrical",
+  },
+];
 
 export default function StoreLayout({ children }: { children: ReactNode }) {
+  const [location, setLocation] = useLocation();
+  const searchString = useSearch();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [headerQuery, setHeaderQuery] = useState("");
+  const cartItems = useDemoCart();
+  const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  const { theme, toggleTheme } = useTheme();
+
+  useEffect(() => {
+    const params = new URLSearchParams(searchString);
+    setHeaderQuery(params.get("q") ?? "");
+  }, [searchString]);
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location, searchString]);
+
+  const params = new URLSearchParams(searchString);
+  const activeCategoryParam = (params.get("category") ?? "").trim().toLowerCase();
+  const isProductsPage = location === "/products";
+  const showContinueShopping =
+    location === "/account" || location === "/cart" || location.startsWith("/products/");
+
+  const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const trimmed = headerQuery.trim();
+    const nextParams = new URLSearchParams();
+    if (trimmed) nextParams.set("q", trimmed);
+    if (activeCategoryParam) nextParams.set("category", params.get("category") ?? "");
+    const suffix = nextParams.toString();
+    setLocation(suffix ? `/products?${suffix}` : "/products");
+    setMenuOpen(false);
+  };
+
   return (
-    <div className="site-frame">
-      <StoreHeader />
-      {children}
-      <StoreFooter />
-      <div className="sr-only" aria-live="polite" id="store-announcements" />
+    <div className="store-shell" data-inert-target="true">
+      <a className="skip-link" href="#main-content">
+        Skip to main content
+      </a>
+
+      <header className="gs-header">
+        {/* Desktop Service Bar / Mobile Demo Store Notice */}
+        <div className="gs-service-bar">
+          <div className="page-width gs-service-bar__inner">
+            <span className="gs-service-bar__tagline">
+              Good tools. Clear choices. Back to the work.
+            </span>
+            <span className="gs-service-bar__demo">
+              Demo store · No payment details collected
+            </span>
+          </div>
+        </div>
+
+        {/* Main Navigation Bar (88px) */}
+        <div className="gs-main-nav">
+          <div className="page-width gs-main-nav__inner">
+            <Link
+              href="/store"
+              className="gs-wordmark"
+              aria-label="Goodstock Hardware storefront home"
+            >
+              <span className="gs-wordmark__name">goodstock</span>
+              <span className="gs-wordmark__sub">HARDWARE</span>
+            </Link>
+
+            <form
+              className="gs-header-search"
+              role="search"
+              onSubmit={handleSearchSubmit}
+            >
+              <label htmlFor="gs-header-search-input" className="sr-only">
+                Search hardware
+              </label>
+              <Search size={18} className="gs-header-search__icon" aria-hidden="true" />
+              <input
+                id="gs-header-search-input"
+                type="search"
+                value={headerQuery}
+                onChange={event => setHeaderQuery(event.target.value)}
+                placeholder="Search hardware"
+                autoComplete="off"
+              />
+            </form>
+
+            <div className="gs-main-nav__actions">
+              <ThemeToggleButton className="gs-desktop-only" />
+
+              <Link
+                href="/account"
+                className={`gs-nav-action gs-desktop-only ${location === "/account" ? "is-active" : ""}`.trim()}
+              >
+                <User size={17} aria-hidden="true" />
+                <span>Account</span>
+              </Link>
+
+              <Link
+                href="/cart"
+                className={`gs-nav-cart ${location === "/cart" ? "is-active" : ""}`.trim()}
+                aria-label={`Cart, ${cartCount} ${cartCount === 1 ? "item" : "items"}`}
+              >
+                <ShoppingBag size={17} aria-hidden="true" />
+                <span className="gs-nav-cart__label">Cart</span>
+                <span className="gs-nav-cart__count">{cartCount}</span>
+              </Link>
+
+              <button
+                type="button"
+                className="gs-icon-btn gs-mobile-only"
+                aria-expanded={menuOpen}
+                aria-controls="gs-mobile-menu"
+                aria-label={menuOpen ? "Close menu" : "Open menu"}
+                onClick={() => setMenuOpen(open => !open)}
+              >
+                {menuOpen ? <X size={20} aria-hidden="true" /> : <Menu size={20} aria-hidden="true" />}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop Shop Navigation Bar (48px) */}
+        <div className="gs-shop-nav">
+          <div className="page-width gs-shop-nav__inner">
+            <nav className="gs-shop-nav__links" aria-label="Shop categories">
+              {SHOP_CATEGORIES.map(item => {
+                const isActive =
+                  isProductsPage &&
+                  (item.key === "all"
+                    ? !activeCategoryParam
+                    : activeCategoryParam === item.key);
+                return (
+                  <Link
+                    key={item.key}
+                    href={item.href}
+                    className={`gs-shop-nav__link ${isActive ? "is-active" : ""}`.trim()}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </nav>
+
+            <div className="gs-shop-nav__right">
+              {showContinueShopping ? (
+                <Link href="/products" className="gs-continue-link">
+                  Continue shopping <ArrowRight size={15} aria-hidden="true" />
+                </Link>
+              ) : (
+                <Link href="/business" className="gs-workspace-link">
+                  Business workspace <ArrowUpRight size={14} aria-hidden="true" />
+                </Link>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Mobile Drawer */}
+        {menuOpen && (
+          <div id="gs-mobile-menu" className="gs-mobile-drawer">
+            <div className="page-width gs-mobile-drawer__inner">
+              <form
+                className="gs-header-search gs-header-search--mobile"
+                role="search"
+                onSubmit={handleSearchSubmit}
+              >
+                <label htmlFor="gs-mobile-search-input" className="sr-only">
+                  Search hardware
+                </label>
+                <Search size={18} className="gs-header-search__icon" aria-hidden="true" />
+                <input
+                  id="gs-mobile-search-input"
+                  type="search"
+                  value={headerQuery}
+                  onChange={event => setHeaderQuery(event.target.value)}
+                  placeholder="Search hardware"
+                  autoComplete="off"
+                />
+              </form>
+
+              <nav className="gs-mobile-drawer__nav" aria-label="Mobile storefront navigation">
+                {SHOP_CATEGORIES.map(item => {
+                  const isActive =
+                    isProductsPage &&
+                    (item.key === "all"
+                      ? !activeCategoryParam
+                      : activeCategoryParam === item.key);
+                  return (
+                    <Link
+                      key={item.key}
+                      href={item.href}
+                      className={isActive ? "is-active" : ""}
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      {item.label}
+                    </Link>
+                  );
+                })}
+                <Link
+                  href="/account"
+                  className={location === "/account" ? "is-active" : ""}
+                  onClick={() => setMenuOpen(false)}
+                >
+                  Your account
+                </Link>
+                <Link
+                  href="/business"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  Business workspace
+                </Link>
+              </nav>
+
+              {toggleTheme && (
+                <button
+                  type="button"
+                  className="gs-btn gs-btn--secondary gs-btn--full"
+                  onClick={toggleTheme}
+                >
+                  {theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </header>
+
+      <div className="store-shell__body">{children}</div>
+
+      <footer className="gs-footer">
+        <div className="page-width gs-footer__inner">
+          <span className="gs-footer__brand">© Goodstock Hardware</span>
+          <p className="gs-footer__legal">
+            Demo account data is handled by Supabase. No payment details are collected.
+          </p>
+          <div className="gs-footer__links">
+            <Link href="/products" className="gs-footer__shop-link">
+              Shop hardware <span aria-hidden="true">↗</span>
+            </Link>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

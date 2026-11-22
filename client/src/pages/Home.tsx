@@ -1,114 +1,206 @@
 import { motion } from "framer-motion";
-import { ArrowRight, ArrowUpRight, RefreshCw } from "lucide-react";
+import { ArrowRight, Bolt, CheckCircle2, RefreshCw, ShieldCheck, Wrench } from "lucide-react";
 import { Link } from "wouter";
 import ProductCard from "@/components/store/ProductCard";
 import StoreLayout from "@/components/store/StoreLayout";
 import { trpc } from "@/lib/trpc";
-import { formatMoney, productImage, type StoreProduct } from "@/lib/storefront";
+import type { StoreProduct } from "@/lib/storefront";
 
-function StorefrontSkeleton() {
-  return (
-    <div className="page-width home-skeleton" aria-busy="true" role="status" aria-live="polite">
-      <span className="sr-only" role="status" aria-live="polite">Loading the hardware catalog…</span>
-      <div className="skeleton hero-skeleton" />
-      <div className="skeleton-line" />
-      <div className="skeleton-grid"><div className="skeleton product-skeleton" /><div className="skeleton product-skeleton" /></div>
-    </div>
-  );
-}
-
-function StorefrontError({ onRetry }: { onRetry: () => void }) {
-  return (
-    <section className="catalog-state" role="alert">
-      <span className="catalog-state__eyebrow">Store connection</span>
-      <h1>The hardware catalog could not load.</h1>
-      <p>Try again in a moment. If this keeps happening, check the Supabase catalog connection.</p>
-      <button type="button" className="button button--dark" onClick={onRetry}><RefreshCw size={17} /> Try again</button>
-    </section>
-  );
-}
-
-function CategoryTiles({ fastener, tools, electrical }: { fastener?: StoreProduct; tools?: StoreProduct; electrical?: StoreProduct }) {
-  const cards = [
-    { id: "fasteners", name: "Fasteners", detail: "Screws and the small parts that hold a fix together.", product: fastener },
-    { id: "tools", name: "Tools", detail: "Practical hand tools for measuring and everyday repairs.", product: tools },
-    { id: "power-electrical", name: "Power & electrical", detail: "Electrical supplies and components for compatible projects.", product: electrical },
-  ];
-  return (
-    <section className="category-section page-width" aria-labelledby="category-title">
-      <div className="section-heading section-heading--row">
-        <div><p className="eyebrow">Find your aisle</p><h2 id="category-title">Start with the part you need.</h2></div>
-        <Link href="/products" className="text-link">Shop all hardware <ArrowRight size={16} /></Link>
-      </div>
-      <div className="category-grid">
-        {cards.map((card, index) => {
-          const image = card.product ? productImage(card.product) : undefined;
-          return (
-            <motion.div key={card.id} className={`category-card category-card--${index + 1}`} initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.15 }} transition={{ duration: 0.42, delay: index * 0.08 }}>
-              <Link href={`/products#${card.id}`} className="category-card__link">
-                <div className="category-card__image">{image && <img src={image.url} alt="" loading="lazy" />}</div>
-                <div className="category-card__copy"><div><h3>{card.name}</h3><p>{card.detail}</p></div><span aria-hidden="true"><ArrowUpRight size={20} /></span></div>
-              </Link>
-            </motion.div>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
+const categoryCards = [
+  {
+    title: "Fasteners",
+    copy: "Screws, washers, and everyday hardware that hold repairs together.",
+    href: "/products?category=Fasteners",
+    image: "/images/fasteners-illustration.svg",
+  },
+  {
+    title: "Tools",
+    copy: "Drivers, wrenches, pliers, and measuring gear built for repeat work.",
+    href: "/products?category=Tools",
+    image: "/images/tools-illustration.svg",
+  },
+  {
+    title: "Power & electrical",
+    copy: "Breakers, relays, fuses, and bench parts for clean electrical fixes.",
+    href: "/products?category=Power%20%26%20Electrical",
+    image: "/images/electrical-illustration.svg",
+  },
+];
 
 export default function Home() {
-  const query = trpc.storefront.products.useQuery(undefined, { retry: 1, staleTime: 30_000 });
-  const products = (query.data ?? []) as StoreProduct[];
-  const fastener = products.find(product => product.productType.toLowerCase().includes("fastener")) ?? products[0];
-  const tools = products.find(product => product.productType.toLowerCase().includes("tool"));
-  const electrical = products.find(product => product.productType.toLowerCase().includes("electrical")) ?? products.find(product => product !== fastener);
+  const productsQuery = trpc.storefront.products.useQuery(undefined, {
+    retry: 1,
+    staleTime: 30_000,
+  });
+  const products = (productsQuery.data ?? []) as StoreProduct[];
+  const featured = products.slice(0, 6);
 
   return (
     <StoreLayout>
-      <main id="main-content">
-        {query.isLoading ? <StorefrontSkeleton /> : query.isError ? <div className="page-width"><StorefrontError onRetry={() => void query.refetch()} /></div> : (
-          <>
-            {products.length === 0 ? (
-              <section className="page-width catalog-state"><span className="catalog-state__eyebrow">Catalog</span><h1>Your next project starts here.</h1><p>Active products in the Supabase catalog appear here automatically.</p><Link className="button button--dark" href="/products">Browse hardware</Link></section>
-            ) : (
-              <>
-                <section className="hero-section page-width">
-                  <motion.div className="hero-copy" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.48, ease: [0.22, 1, 0.36, 1] }}>
-                    <p className="eyebrow"><span className="eyebrow__mark" />Hardware for everyday fixes</p>
-                    <h1>Build the fix.<br /><span>Make it last.</span></h1>
-                    <p className="hero-copy__body">Reliable fasteners, practical hand tools, and electrical essentials for everyday repairs.</p>
-                    <div className="hero-actions">
-                      <Link className="button button--accent" href={fastener ? `/products/${fastener.handle}` : "/products"}>Shop the essentials <ArrowRight size={18} /></Link>
-                      <Link className="quiet-link" href="/products">See all hardware</Link>
-                    </div>
-                  </motion.div>
-                  <motion.div className="hero-showcase" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.65, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}>
-                    {fastener && <img className="hero-showcase__product" src={productImage(fastener).url} alt={productImage(fastener).altText || fastener.title} />}
-                    {fastener && (
-                      <Link className="hero-product-callout" href={`/products/${fastener.handle}`}>
-                        <span className="hero-product-callout__line" aria-hidden="true" />
-                        <span className="hero-product-callout__copy"><span>{fastener.productType}</span><strong>{fastener.title}</strong></span>
-                        <span className="price">{formatMoney(fastener.priceRange.minVariantPrice)}</span>
-                      </Link>
-                    )}
-                  </motion.div>
-                </section>
-                <section className="value-strip" aria-label="How this store works">
-                  <div className="page-width value-strip__inner"><p>Clear product details</p><p>Demo checkout — no payment</p><p>Orders linked to your account</p></div>
-                </section>
-                <CategoryTiles fastener={fastener} tools={tools} electrical={electrical} />
-                <section className="product-section page-width" aria-labelledby="products-title">
-                  <div className="section-heading section-heading--row">
-                    <div><p className="eyebrow">On the shelf</p><h2 id="products-title">Hardware for the work ahead.</h2></div>
-                    <Link href="/products" className="text-link">Browse all products <ArrowRight size={16} /></Link>
-                  </div>
-                  <div className="product-grid">{products.map((product, index) => <ProductCard key={product.id} product={product} index={index} />)}</div>
-                </section>
-              </>
-            )}
-          </>
-        )}
+      <main id="main-content" className="gs-home-page">
+        <section className="page-width hero">
+          <motion.div
+            className="hero__copy"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <p className="gs-eyebrow">DEPENDABLE WORKSHOP SUPPLY</p>
+            <h1 className="gs-display-title">Build the fix. Make it last.</h1>
+            <p className="hero__lead">
+              Thoughtfully stocked fasteners, hand tools, and electrical essentials—ready for weekend repairs, studio builds, and the jobs you want done once.
+            </p>
+            <div className="hero__actions">
+              <Link className="gs-btn gs-btn--primary" href="/products">
+                Shop all hardware <ArrowRight size={17} aria-hidden="true" />
+              </Link>
+              <Link className="gs-btn gs-btn--secondary" href="/account">
+                Your account
+              </Link>
+            </div>
+            <dl className="hero__trust">
+              <div>
+                <dt>
+                  <CheckCircle2 size={16} aria-hidden="true" /> Practical picks
+                </dt>
+                <dd>Everyday specs without aisle clutter.</dd>
+              </div>
+              <div>
+                <dt>
+                  <Bolt size={16} aria-hidden="true" /> Clear details
+                </dt>
+                <dd>Sizes, materials, and demo stock up front.</dd>
+              </div>
+              <div>
+                <dt>
+                  <ShieldCheck size={16} aria-hidden="true" /> Safe demo
+                </dt>
+                <dd>Orders save to Supabase with no payment collected.</dd>
+              </div>
+            </dl>
+          </motion.div>
+
+          <motion.div
+            className="gs-card hero__visual"
+            initial={{ opacity: 0, scale: 0.985 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.45, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <div className="hero__FeatureCard">
+              <div className="hero__badge">
+                <Wrench size={15} aria-hidden="true" /> Workshop staples
+              </div>
+              <img
+                src="/images/combination-wrenches.webp"
+                alt="Metric combination wrench set arranged by size"
+              />
+              <div className="hero__caption">
+                <div>
+                  <p>Featured bench essential</p>
+                  <strong>Clear specs before it goes in the bag.</strong>
+                </div>
+                <Link href="/products" aria-label="Browse all hardware">
+                  <ArrowRight size={18} aria-hidden="true" />
+                </Link>
+              </div>
+            </div>
+          </motion.div>
+        </section>
+
+        <section className="page-width section-block" aria-labelledby="category-heading">
+          <div className="section-heading">
+            <div>
+              <p className="gs-eyebrow">FIND YOUR AISLE</p>
+              <h2 id="category-heading">Start with what the job calls for.</h2>
+            </div>
+            <Link className="gs-text-link" href="/products">
+              View full catalog <ArrowRight size={16} aria-hidden="true" />
+            </Link>
+          </div>
+
+          <div className="category-grid">
+            {categoryCards.map(category => (
+              <Link
+                className="gs-card category-card"
+                href={category.href}
+                key={category.title}
+              >
+                <img src={category.image} alt="" aria-hidden="true" />
+                <div>
+                  <h3>{category.title}</h3>
+                  <p>{category.copy}</p>
+                  <span>
+                    Explore {category.title.toLowerCase()}{" "}
+                    <ArrowRight size={15} aria-hidden="true" />
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        <section className="page-width section-block" aria-labelledby="featured-heading">
+          <div className="section-heading">
+            <div>
+              <p className="gs-eyebrow">READY TO INSPECT</p>
+              <h2 id="featured-heading">Reliable parts for the bench.</h2>
+            </div>
+            <Link className="gs-text-link" href="/products">
+              Browse all {products.length ? `(${products.length})` : ""}{" "}
+              <ArrowRight size={16} aria-hidden="true" />
+            </Link>
+          </div>
+
+          {productsQuery.isLoading ? (
+            <div className="product-grid" aria-busy="true">
+              <span className="sr-only" role="status" aria-live="polite">
+                Loading featured products…
+              </span>
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div className="product-skeleton" key={index} aria-hidden="true">
+                  <div className="skeleton product-skeleton__image" />
+                  <div className="skeleton-line" />
+                  <div className="skeleton-line skeleton-line--short" />
+                </div>
+              ))}
+            </div>
+          ) : productsQuery.isError ? (
+            <div className="gs-card gs-state-card" role="alert">
+              <h3>Catalog temporarily unavailable</h3>
+              <p>We could not load products right now. Please try again.</p>
+              <button
+                type="button"
+                className="gs-btn gs-btn--primary"
+                onClick={() => void productsQuery.refetch()}
+              >
+                <RefreshCw size={16} aria-hidden="true" /> Try again
+              </button>
+            </div>
+          ) : featured.length === 0 ? (
+            <div className="gs-card gs-state-card">
+              <h3>No products are listed yet</h3>
+              <p>Products will appear here as soon as they are published in the catalog.</p>
+            </div>
+          ) : (
+            <div className="product-grid">
+              {featured.map((product, index) => (
+                <ProductCard key={product.id} product={product} index={index} />
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="page-width project-banner">
+          <div className="gs-card project-banner__inner">
+            <div>
+              <p className="gs-eyebrow">ACCOUNT &amp; DEMO CHECKOUT</p>
+              <h2>Save your project list before you head back to the bench.</h2>
+            </div>
+            <Link className="gs-btn gs-btn--primary" href="/account">
+              Sign in or create account <ArrowRight size={17} aria-hidden="true" />
+            </Link>
+          </div>
+        </section>
       </main>
     </StoreLayout>
   );
