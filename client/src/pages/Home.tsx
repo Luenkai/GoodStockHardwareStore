@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { ArrowRight, Bolt, CheckCircle2, RefreshCw, ShieldCheck, Wrench } from "lucide-react";
+import { ArrowRight, Bolt, CheckCircle2, RefreshCw, Truck, Wrench } from "lucide-react";
 import { Link } from "wouter";
 import ProductCard from "@/components/store/ProductCard";
 import StoreLayout from "@/components/store/StoreLayout";
@@ -9,19 +9,19 @@ import type { StoreProduct } from "@/lib/storefront";
 const categoryCards = [
   {
     title: "Fasteners",
-    copy: "Screws, washers, and everyday hardware that hold repairs together.",
+    copy: "Screws, bolts, washers, and structural hardware built to hold repairs together.",
     href: "/products?category=Fasteners",
     image: "/images/fasteners-illustration.svg",
   },
   {
     title: "Tools",
-    copy: "Drivers, wrenches, pliers, and measuring gear built for repeat work.",
+    copy: "Drivers, wrenches, pliers, and measuring gear engineered for repeat bench work.",
     href: "/products?category=Tools",
     image: "/images/tools-illustration.svg",
   },
   {
     title: "Power & electrical",
-    copy: "Breakers, relays, fuses, and bench parts for clean electrical fixes.",
+    copy: "Breakers, relays, regulators, fuses, and bench components for clean electrical work.",
     href: "/products?category=Power%20%26%20Electrical",
     image: "/images/electrical-illustration.svg",
   },
@@ -33,7 +33,7 @@ export default function Home() {
     staleTime: 30_000,
   });
   const products = (productsQuery.data ?? []) as StoreProduct[];
-  const featured = products.slice(0, 6);
+  const featured = products.slice(0, 8);
 
   return (
     <StoreLayout>
@@ -48,14 +48,14 @@ export default function Home() {
             <p className="gs-eyebrow">DEPENDABLE WORKSHOP SUPPLY</p>
             <h1 className="gs-display-title">Build the fix. Make it last.</h1>
             <p className="hero__lead">
-              Thoughtfully stocked fasteners, hand tools, and electrical essentials—ready for weekend repairs, studio builds, and the jobs you want done once.
+              Thoughtfully stocked fasteners, hand tools, and electrical essentials—ready for contractor jobs, studio builds, and repairs you want done once.
             </p>
             <div className="hero__actions">
               <Link className="gs-btn gs-btn--primary" href="/products">
                 Shop all hardware <ArrowRight size={17} aria-hidden="true" />
               </Link>
               <Link className="gs-btn gs-btn--secondary" href="/account">
-                Your account
+                Orders &amp; account
               </Link>
             </div>
             <dl className="hero__trust">
@@ -63,19 +63,19 @@ export default function Home() {
                 <dt>
                   <CheckCircle2 size={16} aria-hidden="true" /> Practical picks
                 </dt>
-                <dd>Everyday specs without aisle clutter.</dd>
+                <dd>Everyday trade specs without aisle clutter.</dd>
               </div>
               <div>
                 <dt>
                   <Bolt size={16} aria-hidden="true" /> Clear details
                 </dt>
-                <dd>Sizes, materials, and demo stock up front.</dd>
+                <dd>Exact sizes, materials, and stock status up front.</dd>
               </div>
               <div>
                 <dt>
-                  <ShieldCheck size={16} aria-hidden="true" /> Safe demo
+                  <Truck size={16} aria-hidden="true" /> Fast dispatch
                 </dt>
-                <dd>Orders save to Supabase with no payment collected.</dd>
+                <dd>Nationwide shipping or same-day counter pickup.</dd>
               </div>
             </dl>
           </motion.div>
@@ -142,7 +142,7 @@ export default function Home() {
         <section className="page-width section-block" aria-labelledby="featured-heading">
           <div className="section-heading">
             <div>
-              <p className="gs-eyebrow">READY TO INSPECT</p>
+              <p className="gs-eyebrow">READY TO SHIP</p>
               <h2 id="featured-heading">Reliable parts for the bench.</h2>
             </div>
             <Link className="gs-text-link" href="/products">
@@ -193,11 +193,11 @@ export default function Home() {
         <section className="page-width project-banner">
           <div className="gs-card project-banner__inner">
             <div>
-              <p className="gs-eyebrow">ACCOUNT &amp; DEMO CHECKOUT</p>
-              <h2>Save your project list before you head back to the bench.</h2>
+              <p className="gs-eyebrow">SAVED ADDRESSES &amp; REORDERS</p>
+              <h2>Keep your delivery address and project order history ready.</h2>
             </div>
             <Link className="gs-btn gs-btn--primary" href="/account">
-              Sign in or create account <ArrowRight size={17} aria-hidden="true" />
+              Manage your account <ArrowRight size={17} aria-hidden="true" />
             </Link>
           </div>
         </section>

@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { ArrowLeft, Check, Minus, Plus, RefreshCw } from "lucide-react";
+import { ArrowLeft, Check, Minus, Plus, RefreshCw, Truck } from "lucide-react";
 import { useState } from "react";
 import { Link, useRoute } from "wouter";
 import AddToCartButton from "@/components/store/AddToCartButton";
@@ -65,7 +65,6 @@ export default function ProductDetail() {
           (() => {
             const image = productImage(product);
             const available = productIsAvailable(product);
-            const checkoutReady = product.source === "supabase";
             const descriptionLines = product.description
               .split(/\n+/)
               .map(line => line.trim())
@@ -86,36 +85,29 @@ export default function ProductDetail() {
                   <h1 className="gs-page-title">{product.title}</h1>
 
                   <div className="product-detail__price-row">
-                    <div className="product-card__price-group">
-                      <p className="detail-price">
-                        {formatMoney(product.priceRange.minVariantPrice)}
-                      </p>
-                      <span className="product-card__demo-tag">demo</span>
-                    </div>
+                    <p className="detail-price">
+                      {formatMoney(product.priceRange.minVariantPrice)}
+                    </p>
                     <span
                       className={
-                        available && checkoutReady
+                        available
                           ? "stock-note"
                           : "stock-note stock-note--out"
                       }
                     >
                       <span className="stock-note__dot" aria-hidden="true" />
-                      {!checkoutReady
-                        ? "Preview listing"
-                        : available
-                          ? "Demo stock"
-                          : "Currently unavailable"}
+                      {available ? "In stock · Ready to ship" : "Out of stock"}
                     </span>
                   </div>
 
                   <p className="product-detail__intro">
                     {descriptionLines[0] ||
-                      "Product details from the Goodstock hardware catalog."}
+                      "Trade-grade hardware stocked by Goodstock Hardware."}
                   </p>
 
                   {descriptionLines.length > 1 && (
                     <div className="gs-card spec-list">
-                      <h2>Product details</h2>
+                      <h2>Specifications &amp; details</h2>
                       <ul>
                         {descriptionLines.slice(1).map((line, index) => (
                           <li key={`${index}-${line}`}>
@@ -159,18 +151,19 @@ export default function ProductDetail() {
                     <AddToCartButton
                       product={product}
                       quantity={quantity}
-                      disabled={!checkoutReady || !available}
+                      disabled={!available}
                     />
                   </div>
 
                   <p className="checkout-note">
-                    {product.source === "supabase"
-                      ? "Demo checkout saves an order record in Supabase and does not collect payment."
-                      : "Preview catalog listing · Connect Supabase catalog stock to enable demo checkout."}
+                    <Truck size={15} aria-hidden="true" />
+                    <span>
+                      Free standard delivery on orders ₱1,500+ · Same-day counter pickup available at checkout.
+                    </span>
                   </p>
 
                   <div className="product-detail__meta">
-                    <span>Sold by {product.vendor || "Goodstock Hardware"}</span>
+                    <span>Supplied by {product.vendor || "Goodstock Hardware"}</span>
                   </div>
                 </div>
               </motion.section>

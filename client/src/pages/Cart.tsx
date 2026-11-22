@@ -1,25 +1,72 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, ArrowRight, LoaderCircle, Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle2,
+  CreditCard,
+  LoaderCircle,
+  Minus,
+  Plus,
+  ShoppingBag,
+  Store,
+  Trash2,
+  Truck,
+} from "lucide-react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
 import { toast } from "sonner";
 import StoreLayout from "@/components/store/StoreLayout";
 import ProductCard from "@/components/store/ProductCard";
-import { InlineStatus } from "@/components/store/GoodstockControls";
+import { InlineStatus, TextField } from "@/components/store/GoodstockControls";
+import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
 import { clearCart, removeFromCart, updateCartQuantity, useDemoCart } from "@/lib/cart";
 import { productImage, formatMoney, type StoreProduct } from "@/lib/storefront";
 import { recommendProducts } from "@/lib/recommendations";
-import { supabase } from "@/lib/supabase";
+import {
+  fetchCustomerOrders,
+  loadCustomerProfileData,
+  placeCustomerOrder,
+  type OrderRecord,
+  type ShippingDetails,
+} from "@/lib/storeOperations";
 import { trpc } from "@/lib/trpc";
-import type { User } from "@supabase/supabase-js";
+
+const FREE_SHIPPING_THRESHOLD = 1500;
+const STANDARD_SHIPPING_FEE = 120;
+
+const PAYMENT_LABELS: Record<ShippingDetails["payment_method"], string> = {
+  cod: "Cash on Delivery (COD)",
+  ewallet: "GCash / Maya",
+  card: "Credit / Debit Card",
+};
 
 export default function Cart() {
   const items = useDemoCart();
-  const [user, setUser] = useState<User | null>(null);
+  const { user } = useCustomerAuth();
   const [checkingOut, setCheckingOut] = useState(false);
-  const [orderId, setOrderId] = useState<string | null>(null);
+  const [completedOrder, setCompletedOrder] = useState<OrderRecord | null>(null);
   const [message, setMessage] = useState("");
   const [recentProductIds, setRecentProductIds] = useState<string[]>([]);
+
+  const [fulfillment, setFulfillment] =
+    useState<ShippingDetails["fulfillment_method"]>("delivery");
+  const [paymentMethod, setPaymentMethod] =
+    useState<ShippingDetails["payment_method"]>("cod");
+  const [recipientName, setRecipientName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [line1, setLine1] = useState("");
+  const [line2, setLine2] = useState("");
+  const [city, setCity] = useState("");
+  const [region, setRegion] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [country, setCountry] = useState("PH");
+  const [fieldErrors, setFieldErrors] = useState<{
+    recipient_name?: string;
+    line1?: string;
+    city?: string;
+    postal_code?: string;
+  }>({});
+
   const catalogQuery = trpc.storefront.products.useQuery(undefined, {
     retry: 1,
     staleTime: 30_000,
@@ -27,51 +74,30 @@ export default function Cart() {
   const catalog = (catalogQuery.data ?? []) as StoreProduct[];
 
   useEffect(() => {
-    if (!supabase) return;
-    void supabase.auth.getUser().then(({ data }) => setUser(data.user));
-    const { data } = supabase.auth.onAuthStateChange((_event, session) =>
-      setUser(session?.user ?? null),
-    );
-    return () => data.subscription.unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    const client = supabase;
-    if (!client || !user) {
-      setRecentProductIds([]);
-      return;
-    }
+    if (!user) return;
     let active = true;
-    const loadRecentPurchases = async () => {
-      const { data: orders, error: ordersError } = await client
-        .from("orders")
-        .select("id")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(10);
+    void loadCustomerProfileData(user).then(data => {
       if (!active) return;
-      if (ordersError || !orders?.length) {
-        setRecentProductIds([]);
-        return;
-      }
-      const { data: orderItems, error: itemsError } = await client
-        .from("order_items")
-        .select("product_id")
-        .in(
-          "order_id",
-          orders.map(order => order.id),
-        )
-        .limit(50);
-      if (!active) return;
-      setRecentProductIds(
-        itemsError
-          ? []
-          : (orderItems ?? [])
-              .map(item => item.product_id)
-              .filter((id): id is string => Boolean(id)),
+      setRecipientName(
+        current => current || data.address.recipient_name || data.name || user.displayName,
       );
-    };
-    void loadRecentPurchases();
+      setPhone(current => current || data.phone || user.phone || "");
+      setLine1(current => current || data.address.line1 || "");
+      setLine2(current => current || data.address.line2 || "");
+      setCity(current => current || data.address.city || "");
+      setRegion(current => current || data.address.region || "");
+      setPostalCode(current => current || data.address.postal_code || "");
+      setCountry(current => current || data.address.country || "PH");
+    });
+
+    void fetchCustomerOrders(user.id).then(({ orders }) => {
+      if (!active) return;
+      const ids = orders
+        .flatMap(order => order.order_items.map(item => item.product_id))
+        .filter((id): id is string => Boolean(id));
+      setRecentProductIds(ids);
+    });
+
     return () => {
       active = false;
     };
@@ -87,58 +113,81 @@ export default function Cart() {
       ),
     [items],
   );
+  const currencyCode =
+    items[0]?.product.priceRange.minVariantPrice.currencyCode || "PHP";
+  const shippingFee =
+    fulfillment === "pickup" || subtotal >= FREE_SHIPPING_THRESHOLD
+      ? 0
+      : STANDARD_SHIPPING_FEE;
+  const grandTotal = subtotal + shippingFee;
+
   const recommendations = useMemo(
     () => recommendProducts(catalog, items, recentProductIds),
     [catalog, items, recentProductIds],
   );
 
-  const checkout = async () => {
-    if (!supabase) {
-      setMessage("Supabase is not configured yet.");
-      return;
+  const handleCheckout = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!user || !items.length || checkingOut) return;
+
+    const errors: {
+      recipient_name?: string;
+      line1?: string;
+      city?: string;
+      postal_code?: string;
+    } = {};
+
+    if (!recipientName.trim()) {
+      errors.recipient_name = "Enter a recipient name.";
     }
-    if (!user) {
-      setMessage("Sign in or create an account before placing a demo order.");
-      return;
+    if (fulfillment === "delivery") {
+      if (!line1.trim()) errors.line1 = "Enter a street address.";
+      if (!city.trim()) errors.city = "Enter a city.";
+      if (!postalCode.trim()) errors.postal_code = "Enter a postal code.";
     }
-    if (!items.length || checkingOut) return;
+
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
     setCheckingOut(true);
     setMessage("");
-    const { data: order, error } = await supabase
-      .from("orders")
-      .insert({
-        user_id: user.id,
-        customer_email: user.email,
-        total: subtotal.toFixed(2),
-        currency_code: items[0].product.priceRange.minVariantPrice.currencyCode,
-      })
-      .select("id")
-      .single();
-    if (error || !order) {
-      setCheckingOut(false);
-      setMessage(error?.message || "The demo order could not be created.");
-      return;
-    }
-    const { error: itemError } = await supabase.from("order_items").insert(
-      items.map(item => ({
-        order_id: order.id,
-        product_id: item.product.id,
-        title: item.product.title,
-        quantity: item.quantity,
-        unit_price: item.product.priceRange.minVariantPrice.amount,
-        image_url: productImage(item.product).url,
-      })),
-    );
-    setCheckingOut(false);
-    if (itemError) {
-      setMessage(itemError.message);
-      return;
-    }
+
+    const shippingDetails: ShippingDetails = {
+      recipient_name: recipientName.trim(),
+      phone: phone.trim(),
+      line1:
+        fulfillment === "pickup"
+          ? "Goodstock Counter Pickup"
+          : line1.trim(),
+      line2: fulfillment === "pickup" ? "" : line2.trim(),
+      city: fulfillment === "pickup" ? "Store Counter" : city.trim(),
+      region: fulfillment === "pickup" ? "" : region.trim(),
+      postal_code: fulfillment === "pickup" ? "0000" : postalCode.trim(),
+      country: country.trim() || "PH",
+      fulfillment_method: fulfillment,
+      payment_method: paymentMethod,
+      shipping_fee: shippingFee.toFixed(2),
+    };
+
     const purchasedIds = items.map(item => item.product.id);
+    const result = await placeCustomerOrder({
+      user,
+      items,
+      totalAmount: grandTotal,
+      currencyCode,
+      shipping: shippingDetails,
+    });
+
+    setCheckingOut(false);
+    if (result.error || !result.order) {
+      setMessage(result.error || "Your order could not be placed right now.");
+      return;
+    }
+
     clearCart();
     setRecentProductIds(current => [...purchasedIds, ...current]);
-    setOrderId(order.id);
-    toast.success("Demo order created.");
+    setCompletedOrder(result.order);
+    toast.success("Order confirmed.");
   };
 
   return (
@@ -146,35 +195,70 @@ export default function Cart() {
       <main id="main-content" className="page-width cart-page">
         <div className="cart-heading">
           <div>
-            <p className="gs-eyebrow">YOUR SELECTION</p>
+            <p className="gs-eyebrow">CHECKOUT &amp; BAG</p>
             <h1 className="gs-page-title">Your cart.</h1>
           </div>
           <Link className="gs-text-link" href="/products">
-            <ArrowLeft size={16} aria-hidden="true" /> Keep shopping
+            <ArrowLeft size={16} aria-hidden="true" /> Continue shopping
           </Link>
         </div>
 
-        {orderId ? (
-          <section className="gs-card gs-state-card cart-empty">
-            <div className="empty-state__icon" aria-hidden="true">
-              <ShoppingBag size={22} />
+        {completedOrder ? (
+          <section className="gs-card gs-order-confirmed">
+            <div className="gs-order-confirmed__icon" aria-hidden="true">
+              <CheckCircle2 size={28} />
             </div>
-            <h2>Demo order saved.</h2>
-            <p>
-              Your project order <strong>{orderId.slice(0, 8)}</strong> is stored in Supabase. No payment was taken.
+            <p className="gs-eyebrow">ORDER CONFIRMED</p>
+            <h2>Thank you for your order.</h2>
+            <p className="gs-order-confirmed__lead">
+              Order <strong>#{completedOrder.id.slice(0, 8).toUpperCase()}</strong> is confirmed and being prepared.
             </p>
-            <Link className="gs-btn gs-btn--primary" href="/account">
-              View account <ArrowRight size={17} aria-hidden="true" />
-            </Link>
+
+            <div className="gs-order-confirmed__meta">
+              <div>
+                <span>Fulfillment</span>
+                <strong>
+                  {completedOrder.shipping_address?.fulfillment_method === "pickup"
+                    ? "Counter pickup"
+                    : "Standard delivery"}
+                </strong>
+              </div>
+              <div>
+                <span>Payment</span>
+                <strong>
+                  {completedOrder.shipping_address?.payment_method
+                    ? PAYMENT_LABELS[completedOrder.shipping_address.payment_method]
+                    : "Cash on Delivery"}
+                </strong>
+              </div>
+              <div>
+                <span>Total</span>
+                <strong className="price">
+                  {formatMoney({
+                    amount: completedOrder.total,
+                    currencyCode: completedOrder.currency_code,
+                  })}
+                </strong>
+              </div>
+            </div>
+
+            <div className="gs-order-confirmed__actions">
+              <Link className="gs-btn gs-btn--primary" href="/account">
+                View order history <ArrowRight size={17} aria-hidden="true" />
+              </Link>
+              <Link className="gs-btn gs-btn--secondary" href="/products">
+                Shop more hardware
+              </Link>
+            </div>
           </section>
         ) : !items.length ? (
           <section className="gs-card gs-state-card cart-empty">
             <div className="empty-state__icon" aria-hidden="true">
               <ShoppingBag size={22} />
             </div>
-            <h2>Your cart is ready when you are.</h2>
+            <h2>Your cart is empty.</h2>
             <p>
-              Find fasteners, practical hand tools, and electrical essentials for the next job.
+              Browse fasteners, hand tools, and electrical essentials to start your order.
             </p>
             <Link className="gs-btn gs-btn--primary" href="/products">
               Shop hardware <ArrowRight size={17} aria-hidden="true" />
@@ -184,7 +268,7 @@ export default function Cart() {
           <div className="cart-layout">
             <section className="cart-lines" aria-label="Items in your cart">
               <p className="cart-lines__count" aria-live="polite">
-                {totalQuantity} {totalQuantity === 1 ? "item" : "items"}
+                {totalQuantity} {totalQuantity === 1 ? "item" : "items"} in your cart
               </p>
               <AnimatePresence initial={false}>
                 {items.map(item => {
@@ -272,53 +356,220 @@ export default function Cart() {
             </section>
 
             <aside className="gs-card cart-summary" aria-labelledby="summary-title">
-              <h2 id="summary-title">Demo order summary</h2>
-              <div className="summary-row">
-                <span>Subtotal</span>
-                <strong className="price">
-                  {formatMoney({
-                    amount: subtotal.toFixed(2),
-                    currencyCode:
-                      items[0].product.priceRange.minVariantPrice.currencyCode,
-                  })}
-                </strong>
-              </div>
-              <p>
-                No payment is collected. This creates a project order record in Supabase.
-              </p>
-              {message && (
-                <InlineStatus
-                  status="error"
-                  title="Couldn’t place demo order"
-                  body={message}
-                />
-              )}
-              {user ? (
+              <form className="gs-checkout-form" noValidate onSubmit={handleCheckout}>
+                <h2 id="summary-title">Checkout details</h2>
+
+                <fieldset className="gs-checkout-options">
+                  <legend className="gs-field__label">Fulfillment method</legend>
+                  <div className="gs-option-cards">
+                    <label
+                      className={`gs-option-card ${fulfillment === "delivery" ? "is-selected" : ""}`.trim()}
+                    >
+                      <input
+                        type="radio"
+                        name="fulfillment"
+                        value="delivery"
+                        checked={fulfillment === "delivery"}
+                        onChange={() => setFulfillment("delivery")}
+                      />
+                      <Truck size={17} aria-hidden="true" />
+                      <div>
+                        <strong>Delivery</strong>
+                        <span>
+                          {subtotal >= FREE_SHIPPING_THRESHOLD
+                            ? "Free"
+                            : formatMoney({
+                                amount: String(STANDARD_SHIPPING_FEE),
+                                currencyCode,
+                              })}
+                        </span>
+                      </div>
+                    </label>
+                    <label
+                      className={`gs-option-card ${fulfillment === "pickup" ? "is-selected" : ""}`.trim()}
+                    >
+                      <input
+                        type="radio"
+                        name="fulfillment"
+                        value="pickup"
+                        checked={fulfillment === "pickup"}
+                        onChange={() => setFulfillment("pickup")}
+                      />
+                      <Store size={17} aria-hidden="true" />
+                      <div>
+                        <strong>Pickup</strong>
+                        <span>Free</span>
+                      </div>
+                    </label>
+                  </div>
+                </fieldset>
+
+                <div className="gs-checkout-fields">
+                  <div className="gs-form-grid gs-form-grid--two">
+                    <TextField
+                      id="checkout-recipient"
+                      label="Recipient name"
+                      value={recipientName}
+                      placeholder="Alex Morgan"
+                      error={fieldErrors.recipient_name}
+                      onChange={event => {
+                        setRecipientName(event.target.value);
+                        if (fieldErrors.recipient_name) {
+                          setFieldErrors(prev => ({
+                            ...prev,
+                            recipient_name: undefined,
+                          }));
+                        }
+                      }}
+                    />
+                    <TextField
+                      id="checkout-phone"
+                      label="Contact phone"
+                      type="tel"
+                      value={phone}
+                      placeholder="+63 917 123 4567"
+                      onChange={event => setPhone(event.target.value)}
+                    />
+                  </div>
+
+                  {fulfillment === "delivery" && (
+                    <>
+                      <TextField
+                        id="checkout-line1"
+                        label="Street address"
+                        value={line1}
+                        placeholder="24 Narra Street"
+                        error={fieldErrors.line1}
+                        onChange={event => {
+                          setLine1(event.target.value);
+                          if (fieldErrors.line1) {
+                            setFieldErrors(prev => ({
+                              ...prev,
+                              line1: undefined,
+                            }));
+                          }
+                        }}
+                      />
+                      <div className="gs-form-grid gs-form-grid--two">
+                        <TextField
+                          id="checkout-city"
+                          label="City"
+                          value={city}
+                          placeholder="Quezon City"
+                          error={fieldErrors.city}
+                          onChange={event => {
+                            setCity(event.target.value);
+                            if (fieldErrors.city) {
+                              setFieldErrors(prev => ({
+                                ...prev,
+                                city: undefined,
+                              }));
+                            }
+                          }}
+                        />
+                        <TextField
+                          id="checkout-postal"
+                          label="Postal code"
+                          value={postalCode}
+                          placeholder="1102"
+                          error={fieldErrors.postal_code}
+                          onChange={event => {
+                            setPostalCode(event.target.value);
+                            if (fieldErrors.postal_code) {
+                              setFieldErrors(prev => ({
+                                ...prev,
+                                postal_code: undefined,
+                              }));
+                            }
+                          }}
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <div className="gs-field">
+                  <label htmlFor="checkout-payment" className="gs-field__label">
+                    Payment method
+                  </label>
+                  <select
+                    id="checkout-payment"
+                    className="gs-field__input gs-field__select"
+                    value={paymentMethod}
+                    onChange={event =>
+                      setPaymentMethod(
+                        event.target.value as ShippingDetails["payment_method"],
+                      )
+                    }
+                  >
+                    <option value="cod">Cash on Delivery (COD)</option>
+                    <option value="ewallet">GCash / Maya</option>
+                    <option value="card">Credit / Debit Card</option>
+                  </select>
+                </div>
+
+                <div className="gs-summary-totals">
+                  <div className="summary-row">
+                    <span>Subtotal</span>
+                    <span>
+                      {formatMoney({
+                        amount: subtotal.toFixed(2),
+                        currencyCode,
+                      })}
+                    </span>
+                  </div>
+                  <div className="summary-row">
+                    <span>Shipping</span>
+                    <span>
+                      {shippingFee === 0
+                        ? "Free"
+                        : formatMoney({
+                            amount: shippingFee.toFixed(2),
+                            currencyCode,
+                          })}
+                    </span>
+                  </div>
+                  <div className="summary-row summary-row--total">
+                    <span>Total</span>
+                    <strong className="price">
+                      {formatMoney({
+                        amount: grandTotal.toFixed(2),
+                        currencyCode,
+                      })}
+                    </strong>
+                  </div>
+                </div>
+
+                {message && (
+                  <InlineStatus
+                    status="error"
+                    title="Couldn’t place your order"
+                    body={message}
+                  />
+                )}
+
                 <button
-                  type="button"
+                  type="submit"
                   className="gs-btn gs-btn--primary gs-btn--full"
-                  onClick={() => void checkout()}
                   disabled={checkingOut}
                 >
                   {checkingOut ? (
                     <>
-                      <LoaderCircle size={17} className="spin" aria-hidden="true" />{" "}
-                      Saving order…
+                      <LoaderCircle size={17} className="spin" aria-hidden="true" />
+                      Placing order…
                     </>
                   ) : (
                     <>
-                      Place demo order <ArrowRight size={17} aria-hidden="true" />
+                      <CreditCard size={17} aria-hidden="true" />
+                      Place order ·{" "}
+                      {formatMoney({
+                        amount: grandTotal.toFixed(2),
+                        currencyCode,
+                      })}
                     </>
                   )}
                 </button>
-              ) : (
-                <Link className="gs-btn gs-btn--primary gs-btn--full" href="/account">
-                  Sign in to checkout <ArrowRight size={17} aria-hidden="true" />
-                </Link>
-              )}
-              <span className="summary-secure">
-                Free demo checkout · No payment details collected
-              </span>
+              </form>
             </aside>
           </div>
         )}
@@ -334,7 +585,7 @@ export default function Cart() {
                 <h2 id="cart-recommendations-title">You might need these next.</h2>
               </div>
               <p className="gs-muted-copy">
-                Suggestions match product categories from your cart or recent orders.
+                Suggestions matched to categories in your cart and order history.
               </p>
             </div>
             <div className="product-grid cart-recommendations__grid">

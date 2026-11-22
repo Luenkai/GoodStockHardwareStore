@@ -17,10 +17,9 @@ export default function ProductCard({
 }) {
   const image = productImage(product);
   const available = productIsAvailable(product);
-  const checkoutReady = product.source === "supabase";
 
   const onAdd = () => {
-    if (!checkoutReady || !available) return;
+    if (!available) return;
     addToCart(product);
     toast.success(`${product.title} added to your cart.`);
   };
@@ -55,32 +54,27 @@ export default function ProductCard({
         </div>
 
         <div className="product-card__price-row">
-          <div className="product-card__price-group">
-            <span className="price">
-              {formatMoney(product.priceRange.minVariantPrice)}
-            </span>
-            <span className="product-card__demo-tag">demo</span>
-          </div>
-          {checkoutReady ? (
-            <span
-              className={
-                available ? "stock-note" : "stock-note stock-note--out"
-              }
-            >
-              <span className="stock-note__dot" aria-hidden="true" />
-              {available ? "In stock" : "Unavailable"}
-            </span>
-          ) : null}
+          <span className="price">
+            {formatMoney(product.priceRange.minVariantPrice)}
+          </span>
+          <span
+            className={
+              available ? "stock-note" : "stock-note stock-note--out"
+            }
+          >
+            <span className="stock-note__dot" aria-hidden="true" />
+            {available ? "In stock" : "Out of stock"}
+          </span>
         </div>
 
         <div className="product-card__actions">
-          {checkoutReady && available ? (
+          {available ? (
             <>
               <Link
                 href={`/products/${product.handle}`}
                 className="gs-btn gs-btn--secondary"
               >
-                View details
+                Details
               </Link>
               <button
                 type="button"

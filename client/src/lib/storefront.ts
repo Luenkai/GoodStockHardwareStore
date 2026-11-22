@@ -1,5 +1,10 @@
 export type Money = { amount: string; currencyCode: string };
-export type StoreImage = { url: string; altText: string | null; width: number | null; height: number | null };
+export type StoreImage = {
+  url: string;
+  altText: string | null;
+  width: number | null;
+  height: number | null;
+};
 export type StoreVariant = {
   id: string;
   title: string;
@@ -36,14 +41,25 @@ export function formatMoney(money?: Money | null): string {
   }
 }
 
-export function productImage(product: Pick<StoreProduct, "featuredImage" | "productType">): StoreImage {
+export function productImage(
+  product: Pick<StoreProduct, "featuredImage" | "productType">,
+): StoreImage {
   if (product.featuredImage?.url) return product.featuredImage;
   const type = product.productType.toLowerCase();
   const image = type.includes("fastener")
-    ? { url: "/images/fasteners-illustration.svg", altText: "Generic fasteners illustration; not an exact product photo" }
+    ? {
+        url: "/images/fasteners-illustration.svg",
+        altText: "Fasteners hardware category illustration",
+      }
     : type.includes("electrical")
-      ? { url: "/images/electrical-illustration.svg", altText: "Generic electrical parts illustration; not an exact product photo" }
-      : { url: "/images/tools-illustration.svg", altText: "Generic hand tools illustration; not an exact product photo" };
+      ? {
+          url: "/images/electrical-illustration.svg",
+          altText: "Power and electrical hardware category illustration",
+        }
+      : {
+          url: "/images/tools-illustration.svg",
+          altText: "Hand tools hardware category illustration",
+        };
   return {
     url: image.url,
     altText: image.altText,
@@ -52,6 +68,9 @@ export function productImage(product: Pick<StoreProduct, "featuredImage" | "prod
   };
 }
 
-export function productIsAvailable(product: Pick<StoreProduct, "variants">): boolean {
+export function productIsAvailable(
+  product: Pick<StoreProduct, "variants" | "source">,
+): boolean {
+  if (product.source === "local") return true;
   return product.variants.nodes.some(variant => variant.availableForSale);
 }

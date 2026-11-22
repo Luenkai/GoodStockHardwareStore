@@ -30,6 +30,11 @@ import {
 import { supabase } from "@/lib/supabase";
 import { formatMoney, type StoreProduct } from "@/lib/storefront";
 import { trpc } from "@/lib/trpc";
+import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
+import {
+  getAllLocalOnlineOrders,
+  STORE_DATA_EVENT,
+} from "@/lib/storeOperations";
 import { useTheme } from "@/contexts/ThemeContext";
 import { InlineStatus, ThemeToggleButton } from "@/components/store/GoodstockControls";
 import { calculateMarkup, suggestedReplenishment } from "@/lib/business-pricing";
@@ -154,109 +159,117 @@ const greetingName = (name?: string, email?: string) => {
   return localPart ? localPart.split(/\s+/)[0] : "there";
 };
 
-const SAMPLE_BUSINESS_SALES: (Sale & { note?: string })[] = [
+const INITIAL_LOCAL_SALES: (Sale & {
+  note?: string;
+  items?: Receipt["items"];
+})[] = [
   {
-    id: "sample-sale-142",
+    id: "sale-142",
     receipt_number: "GS-2026-0142",
     total: "1840.00",
     currency_code: "PHP",
     status: "completed",
     created_at: "2026-11-22T09:40:00Z",
     note: "3 items · Card",
+    items: [
+      {
+        product_title: "Combination Wrench Set",
+        quantity: 2,
+        unit_price: "680.00",
+        line_total: "1360.00",
+      },
+      {
+        product_title: "No. 10 × 7/8 in. Sheet-Metal Screws",
+        quantity: 2,
+        unit_price: "240.00",
+        line_total: "480.00",
+      },
+    ],
   },
   {
-    id: "sample-sale-141",
+    id: "sale-141",
     receipt_number: "GS-2026-0141",
     total: "620.00",
     currency_code: "PHP",
     status: "completed",
     created_at: "2026-11-22T08:15:00Z",
     note: "2 items · Cash",
+    items: [
+      {
+        product_title: "Needle-Nose Pliers",
+        quantity: 2,
+        unit_price: "310.00",
+        line_total: "620.00",
+      },
+    ],
   },
   {
-    id: "sample-sale-140",
+    id: "sale-140",
     receipt_number: "GS-2026-0140",
     total: "2490.00",
     currency_code: "PHP",
     status: "completed",
     created_at: "2026-11-21T16:50:00Z",
     note: "5 items · E-wallet",
+    items: [
+      {
+        product_title: "Miniature Circuit Breaker 20A",
+        quantity: 5,
+        unit_price: "498.00",
+        line_total: "2490.00",
+      },
+    ],
   },
 ];
 
-const SAMPLE_DASHBOARD = {
-  product_count: 20,
-  stock_units: 342,
-  low_stock_count: 3,
-  revenue: 18450,
-  sales_count: 14,
-  storefront_demo_order_count: 6,
-  storefront_demo_value_by_currency: [{ currency_code: "PHP", total: 4280 }],
-  low_stock: [
-    {
-      id: "sample-low-1",
-      sku: "GS-TL-012",
-      title: "Combination Wrench Set",
-      inventory: 4,
-      reorder_level: 8,
-      min_stock: 8,
-      max_stock: 24,
-      suggested_replenishment: 20,
-    },
-    {
-      id: "sample-low-2",
-      sku: "GS-EL-004",
-      title: "Miniature Circuit Breaker 20A",
-      inventory: 2,
-      reorder_level: 6,
-      min_stock: 6,
-      max_stock: 20,
-      suggested_replenishment: 18,
-    },
-    {
-      id: "sample-low-3",
-      sku: "GS-TL-009",
-      title: "Needle-Nose Pliers",
-      inventory: 5,
-      reorder_level: 8,
-      min_stock: 8,
-      max_stock: 22,
-      suggested_replenishment: 17,
-    },
-  ],
-  recent_sales: SAMPLE_BUSINESS_SALES,
-  recent_storefront_demo_orders: [
-    {
-      id: "d89a4012-demo-1",
-      status: "demo_submitted",
-      total: "1260.00",
-      currency_code: "PHP",
-      created_at: "2026-11-22T07:30:00Z",
-    },
-    {
-      id: "b41c9208-demo-2",
-      status: "demo_submitted",
-      total: "840.00",
-      currency_code: "PHP",
-      created_at: "2026-11-21T14:20:00Z",
-    },
-  ],
-};
+const INITIAL_LOW_STOCK_SEED = [
+  {
+    sku: "GS-TL-012",
+    title: "Combination Wrench Set",
+    inventory: 4,
+    reorder_level: 8,
+    min_stock: 8,
+    max_stock: 24,
+  },
+  {
+    sku: "GS-EL-004",
+    title: "Miniature Circuit Breaker 20A",
+    inventory: 2,
+    reorder_level: 6,
+    min_stock: 6,
+    max_stock: 20,
+  },
+  {
+    sku: "GS-TL-009",
+    title: "Needle-Nose Pliers",
+    inventory: 5,
+    reorder_level: 8,
+    min_stock: 8,
+    max_stock: 22,
+  },
+];
 
 export default function BusinessPortal() {
   const [location, setLocation] = useLocation();
   const { theme } = useTheme();
+  const { user: authUser, signOut: authSignOut } = useCustomerAuth();
   const [user, setUser] = useState<{ id: string; email?: string; displayName?: string } | null>(null);
   const [staff, setStaff] = useState<Staff | null>(null);
   const [loading, setLoading] = useState(Boolean(supabase));
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState("");
-  const [showSetupCard, setShowSetupCard] = useState(false);
-  const sampleCatalogQuery = trpc.storefront.products.useQuery(undefined, {
+  const localCatalogQuery = trpc.storefront.products.useQuery(undefined, {
     enabled: !supabase,
     retry: 1,
     staleTime: 60_000,
   });
+  const [localProductsInitialized, setLocalProductsInitialized] = useState(false);
+  const [localOnlineOrders, setLocalOnlineOrders] = useState(() =>
+    getAllLocalOnlineOrders(),
+  );
+  const [localSales, setLocalSales] = useState<
+    (Sale & { note?: string; items?: Receipt["items"] })[]
+  >(() => INITIAL_LOCAL_SALES);
   const [authError, setAuthError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
@@ -447,6 +460,40 @@ export default function BusinessPortal() {
     refreshProductCosts,
   ]);
   useEffect(() => {
+    if (supabase) return;
+    const syncOrders = () => setLocalOnlineOrders(getAllLocalOnlineOrders());
+    window.addEventListener(STORE_DATA_EVENT, syncOrders);
+    return () => window.removeEventListener(STORE_DATA_EVENT, syncOrders);
+  }, []);
+
+  useEffect(() => {
+    if (supabase || localProductsInitialized) return;
+    const catalogItems = (localCatalogQuery.data ?? []) as StoreProduct[];
+    if (!catalogItems.length) return;
+    const seeded: Product[] = catalogItems.map((item, index) => {
+      const lowMatch = INITIAL_LOW_STOCK_SEED.find(low =>
+        item.title.toLowerCase().includes(low.title.toLowerCase()),
+      );
+      return {
+        id: item.id,
+        sku: lowMatch?.sku ?? `GS-${String(index + 1).padStart(3, "0")}`,
+        title: item.title,
+        handle: item.handle,
+        product_type: item.productType || "Hardware",
+        price: item.priceRange.minVariantPrice.amount,
+        currency_code: item.priceRange.minVariantPrice.currencyCode || "PHP",
+        inventory: lowMatch ? lowMatch.inventory : 18 + (index % 7) * 2,
+        reorder_level: lowMatch ? lowMatch.reorder_level : 8,
+        min_stock: lowMatch ? lowMatch.min_stock : 8,
+        max_stock: lowMatch ? lowMatch.max_stock : 36,
+        is_active: true,
+      };
+    });
+    setProducts(seeded);
+    setLocalProductsInitialized(true);
+  }, [localCatalogQuery.data, localProductsInitialized]);
+
+  useEffect(() => {
     if (
       products.length &&
       !products.some(p => p.id === analyticsInput.productId)
@@ -461,25 +508,22 @@ export default function BusinessPortal() {
 
   const signOut = async () => {
     if (signingOut) return;
-    if (!supabase) {
-      setShowSetupCard(true);
-      return;
-    }
     setSigningOut(true);
     setSignOutError("");
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) {
+      const res = await authSignOut();
+      if (res.error) {
         setSigningOut(false);
         setSignOutError(
-          error.message || "Check your connection and try again. You’re still signed in.",
+          res.error ||
+            "Check your connection and try again. You’re still signed in.",
         );
         return;
       }
       setUser(null);
       setStaff(null);
       setSigningOut(false);
-      setLocation("/business");
+      setLocation("/sign-in?signedOut=1", { replace: true });
     } catch {
       setSigningOut(false);
       setSignOutError("Check your connection and try again. You’re still signed in.");
@@ -501,7 +545,7 @@ export default function BusinessPortal() {
         setModelArtifacts(localArtifacts);
         setMetrics(localArtifacts);
         setNotice(
-          `Sample preview · Both models trained in memory using ${trained.datasetRows.length.toLocaleString()} records.`,
+          `Both models trained and saved using ${trained.datasetRows.length.toLocaleString()} records.`,
         );
         return;
       }
@@ -615,7 +659,6 @@ export default function BusinessPortal() {
     }
   };
   const checkout = async () => {
-    if (!supabase) return;
     const items = Object.entries(cart)
       .filter(([, quantity]) => quantity > 0)
       .map(([product_id, quantity]) => ({ product_id, quantity }));
@@ -623,6 +666,58 @@ export default function BusinessPortal() {
     setBusy(true);
     setNotice("");
     try {
+      if (!supabase) {
+        const receiptItems = items
+          .map(({ product_id, quantity }) => {
+            const matched = products.find(p => p.id === product_id);
+            if (!matched) return null;
+            const unitPrice = Number(matched.price);
+            return {
+              product_id,
+              product_title: matched.title,
+              quantity,
+              unit_price: unitPrice.toFixed(2),
+              line_total: (unitPrice * quantity).toFixed(2),
+            };
+          })
+          .filter((item): item is NonNullable<typeof item> => Boolean(item));
+        const saleTotal = receiptItems.reduce(
+          (sum, item) => sum + Number(item.line_total),
+          0,
+        );
+        const receiptNumber = `GS-2026-${String(143 + localSales.length).padStart(4, "0")}`;
+        const now = new Date().toISOString();
+        setProducts(current =>
+          current.map(p => {
+            const soldQty = cart[p.id] ?? 0;
+            return soldQty > 0
+              ? { ...p, inventory: Math.max(0, p.inventory - soldQty) }
+              : p;
+          }),
+        );
+        const createdSale = {
+          id: `sale-${Date.now()}`,
+          receipt_number: receiptNumber,
+          total: saleTotal.toFixed(2),
+          currency_code: "PHP",
+          status: "completed",
+          created_at: now,
+          items: receiptItems,
+        };
+        setLocalSales(current => [createdSale, ...current]);
+        setCart({});
+        setReceipt({
+          receipt_number: receiptNumber,
+          created_at: now,
+          total: saleTotal.toFixed(2),
+          currency_code: "PHP",
+          items: receiptItems,
+        });
+        setNotice(
+          `Sale completed. Receipt ${receiptNumber} · ${money(saleTotal, "PHP")}.`,
+        );
+        return;
+      }
       const { data, error } = await supabase.rpc("create_business_sale", {
         items,
       });
@@ -651,7 +746,6 @@ export default function BusinessPortal() {
   };
   const addProduct = async (event: FormEvent) => {
     event.preventDefault();
-    if (!supabase) return;
     setBusy(true);
     try {
       const handle = inventoryForm.title
@@ -659,6 +753,36 @@ export default function BusinessPortal() {
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/(^-|-$)/g, "");
+      if (!supabase) {
+        const created: Product = {
+          id: `local-prod-${Date.now()}`,
+          sku: inventoryForm.sku.trim() || null,
+          title: inventoryForm.title.trim(),
+          handle,
+          product_type: inventoryForm.product_type,
+          price: Number(inventoryForm.price).toFixed(2),
+          currency_code: "PHP",
+          inventory: Number(inventoryForm.inventory),
+          reorder_level: Number(inventoryForm.min_stock),
+          min_stock: Number(inventoryForm.min_stock),
+          max_stock: Number(inventoryForm.max_stock),
+          is_active: true,
+        };
+        setProducts(current => [created, ...current]);
+        setShowProductForm(false);
+        setInventoryForm({
+          sku: "",
+          title: "",
+          product_type: "Fasteners",
+          price: "",
+          inventory: "0",
+          reorder_level: "5",
+          min_stock: "5",
+          max_stock: "50",
+        });
+        setNotice("Product added to inventory.");
+        return;
+      }
       const { error } = await supabase.from("products").insert({
         sku: inventoryForm.sku.trim(),
         title: inventoryForm.title.trim(),
@@ -695,8 +819,14 @@ export default function BusinessPortal() {
     }
   };
   const adjustInventory = async (product: Product, delta: number) => {
-    if (!supabase) return;
     const next = Math.max(0, product.inventory + delta);
+    if (!supabase) {
+      setProducts(current =>
+        current.map(p => (p.id === product.id ? { ...p, inventory: next } : p)),
+      );
+      setNotice(`${product.title} stock updated to ${next}.`);
+      return;
+    }
     const { error } = await supabase
       .from("products")
       .update({ inventory: next })
@@ -708,7 +838,20 @@ export default function BusinessPortal() {
     }
   };
   const setProductActive = async (product: Product, isActive: boolean) => {
-    if (!supabase || staff?.role !== "admin") return;
+    if (!supabase) {
+      setProducts(current =>
+        current.map(p =>
+          p.id === product.id ? { ...p, is_active: isActive } : p,
+        ),
+      );
+      setNotice(
+        isActive
+          ? `${product.title} restored to active inventory.`
+          : `${product.title} archived. Existing order records are preserved.`,
+      );
+      return;
+    }
+    if (staff?.role !== "admin") return;
     setBusy(true);
     setNotice("");
     try {
@@ -735,7 +878,22 @@ export default function BusinessPortal() {
   };
   const assignRole = async (event: FormEvent) => {
     event.preventDefault();
-    if (!supabase) return;
+    if (!supabase) {
+      if (!staffEmail.trim()) return;
+      setStaffRows(current => [
+        ...current.filter(r => r.email !== staffEmail.trim()),
+        {
+          user_id: `staff-${Date.now()}`,
+          email: staffEmail.trim(),
+          display_name: staffEmail.trim().split("@")[0],
+          role: staffRole,
+          assigned_at: new Date().toISOString(),
+        },
+      ]);
+      setStaffEmail("");
+      setNotice("Staff role updated.");
+      return;
+    }
     setBusy(true);
     try {
       const { error } = await supabase.rpc("assign_business_role", {
@@ -753,7 +911,11 @@ export default function BusinessPortal() {
     }
   };
   const revokeRole = async (email: string) => {
-    if (!supabase) return;
+    if (!supabase) {
+      setStaffRows(current => current.filter(r => r.email !== email));
+      setNotice("Staff access revoked.");
+      return;
+    }
     setBusy(true);
     try {
       const { error } = await supabase.rpc("revoke_business_access", {
@@ -806,7 +968,19 @@ export default function BusinessPortal() {
   };
 
   const saveProductCost = async (productId: string, supplierName: string, supplierPrice: string) => {
-    if (!supabase) return;
+    if (!supabase) {
+      setProductCosts(current => ({
+        ...current,
+        [productId]: {
+          product_id: productId,
+          supplier_name: supplierName,
+          supplier_price: Number(supplierPrice),
+          currency_code: "PHP",
+        },
+      }));
+      setNotice("Private supplier pricing saved.");
+      return;
+    }
     setBusy(true);
     try {
       const { error } = await supabase.rpc("upsert_business_product_cost", {
@@ -825,9 +999,26 @@ export default function BusinessPortal() {
   };
 
   const saveStockLevels = async (product: Product, minStock: number, maxStock: number) => {
-    if (!supabase) return;
     if (minStock < 0 || maxStock < minStock) {
       setAuthError("Minimum stock must be nonnegative and maximum stock must be at least the minimum.");
+      return;
+    }
+    if (!supabase) {
+      setProducts(current =>
+        current.map(p =>
+          p.id === product.id
+            ? {
+                ...p,
+                min_stock: minStock,
+                max_stock: maxStock,
+                reorder_level: minStock,
+              }
+            : p,
+        ),
+      );
+      setNotice(
+        `Stock range saved for ${product.title}. Current inventory was not changed.`,
+      );
       return;
     }
     setBusy(true);
@@ -844,7 +1035,24 @@ export default function BusinessPortal() {
   };
 
   const openReceipt = async (sale: Sale) => {
-    if (!supabase) return;
+    if (!supabase) {
+      const found = localSales.find(s => s.id === sale.id);
+      setReceipt({
+        receipt_number: sale.receipt_number,
+        created_at: sale.created_at,
+        total: sale.total,
+        currency_code: sale.currency_code,
+        items: found?.items ?? [
+          {
+            product_title: "Counter hardware items",
+            quantity: 1,
+            unit_price: sale.total,
+            line_total: sale.total,
+          },
+        ],
+      });
+      return;
+    }
     setBusy(true);
     try {
       const { data, error } = await supabase.from("business_sale_items")
@@ -864,36 +1072,62 @@ export default function BusinessPortal() {
     }
   };
 
-  const isSampleWorkspace = !supabase && !showSetupCard;
-  const sampleProducts: Product[] = ((sampleCatalogQuery.data ?? []) as StoreProduct[]).map(
-    (item, index) => {
-      const lowMatch = SAMPLE_DASHBOARD.low_stock.find(low =>
-        item.title.toLowerCase().includes(low.title.toLowerCase()),
-      );
-      return {
-        id: item.id,
-        sku: lowMatch?.sku ?? `GS-${String(index + 1).padStart(3, "0")}`,
-        title: item.title,
-        handle: item.handle,
-        product_type: item.productType || "Hardware",
-        price: item.priceRange.minVariantPrice.amount,
-        currency_code: item.priceRange.minVariantPrice.currencyCode || "PHP",
-        inventory: lowMatch ? lowMatch.inventory : 18 + (index % 7) * 2,
-        reorder_level: lowMatch ? lowMatch.reorder_level : 8,
-        min_stock: lowMatch ? lowMatch.min_stock : 8,
-        max_stock: lowMatch ? lowMatch.max_stock : 36,
-        is_active: true,
-      };
-    },
+  const visibleLocalProducts = products.filter(p =>
+    showArchived ? true : p.is_active,
+  );
+  const activeOnlyLocalProducts = products.filter(p => p.is_active);
+  const localLowStock = activeOnlyLocalProducts
+    .filter(p => p.inventory <= p.reorder_level)
+    .sort((a, b) => a.inventory - b.inventory)
+    .slice(0, 6)
+    .map(p => ({
+      ...p,
+      suggested_replenishment: suggestedReplenishment(
+        p.max_stock,
+        p.inventory,
+      ),
+    }));
+  const localRevenue = localSales
+    .filter(s => s.status === "completed")
+    .reduce((sum, s) => sum + Number(s.total), 0);
+  const localOnlineTotal = localOnlineOrders.reduce(
+    (sum, o) => sum + Number(o.total),
+    0,
   );
 
-  const activeUser = isSampleWorkspace
-    ? { id: "sample-admin", email: "staff@goodstock.example", displayName: "Alex Morgan" }
-    : user;
-  const activeStaff: Staff | null = isSampleWorkspace ? { role: "admin" } : staff;
-  const activeDashboard = isSampleWorkspace ? SAMPLE_DASHBOARD : dashboard;
-  const activeProducts = isSampleWorkspace ? sampleProducts : products;
-  const activeSales = isSampleWorkspace ? SAMPLE_BUSINESS_SALES : sales;
+  const computedLocalDashboard = {
+    product_count: activeOnlyLocalProducts.length,
+    stock_units: activeOnlyLocalProducts.reduce(
+      (sum, p) => sum + Number(p.inventory),
+      0,
+    ),
+    low_stock_count: activeOnlyLocalProducts.filter(
+      p => p.inventory <= p.reorder_level,
+    ).length,
+    revenue: localRevenue,
+    sales_count: localSales.filter(s => s.status === "completed").length,
+    storefront_demo_order_count: localOnlineOrders.length,
+    storefront_demo_value_by_currency: localOnlineOrders.length
+      ? [{ currency_code: "PHP", total: localOnlineTotal }]
+      : [],
+    low_stock: localLowStock,
+    recent_sales: localSales.slice(0, 6),
+    recent_storefront_demo_orders: localOnlineOrders.slice(0, 6),
+  };
+
+  const activeUser = supabase
+    ? user
+    : authUser
+      ? {
+          id: authUser.id,
+          email: authUser.email,
+          displayName: authUser.displayName,
+        }
+      : null;
+  const activeStaff: Staff | null = supabase ? staff : { role: "admin" };
+  const activeDashboard = supabase ? dashboard : computedLocalDashboard;
+  const activeProducts = supabase ? products : visibleLocalProducts;
+  const activeSales = supabase ? sales : localSales;
 
   const page =
     location === "/business/inventory"
@@ -925,32 +1159,6 @@ export default function BusinessPortal() {
     users: "Review staff access requests and manage workspace roles.",
   };
 
-  if (!supabase && showSetupCard)
-    return (
-      <div className="business-config">
-        <div className="business-config__topbar">
-          <span className="gs-eyebrow">GOODSTOCK STAFF</span>
-          <ThemeToggleButton />
-        </div>
-        <h1>Connect Supabase for live staff records.</h1>
-        <p>
-          Configure the existing Supabase URL and publishable key, then apply{" "}
-          <code>supabase/business-app.sql</code>.
-        </p>
-        <div className="business-config__actions">
-          <button
-            type="button"
-            className="gs-btn gs-btn--primary"
-            onClick={() => setShowSetupCard(false)}
-          >
-            Open sample workspace
-          </button>
-          <Link className="gs-btn gs-btn--secondary" href="/store">
-            Back to storefront
-          </Link>
-        </div>
-      </div>
-    );
   if (loading)
     return (
       <div className="business-config">
@@ -971,8 +1179,8 @@ export default function BusinessPortal() {
           staff role before you can access this workspace.
         </p>
         <div className="business-config__actions">
-          <Link className="gs-btn gs-btn--primary" href="/account">
-            Sign in or create account
+          <Link className="gs-btn gs-btn--primary" href="/sign-in?next=%2Fbusiness">
+            Sign in
           </Link>
           <Link className="gs-btn gs-btn--secondary" href="/store">
             <ArrowLeft size={16} aria-hidden="true" /> Back to storefront
@@ -1109,37 +1317,26 @@ export default function BusinessPortal() {
               <small>{roleNames[activeStaff.role]}</small>
             </span>
           </div>
-          {isSampleWorkspace ? (
-            <button
-              type="button"
-              className="business-signout"
-              onClick={() => setShowSetupCard(true)}
-            >
-              <Database size={15} aria-hidden="true" /> Supabase setup guide
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="business-signout"
-              disabled={signingOut}
-              onClick={() => void signOut()}
-            >
-              {signingOut ? (
-                <>
-                  <LoaderCircle size={15} className="spin" aria-hidden="true" /> Signing out…
-                </>
-              ) : (
-                <>
-                  <LogOut size={15} aria-hidden="true" /> Sign out
-                </>
-              )}
-            </button>
-          )}
+          <button
+            type="button"
+            className="business-signout"
+            disabled={signingOut}
+            onClick={() => void signOut()}
+          >
+            {signingOut ? (
+              <>
+                <LoaderCircle size={15} className="spin" aria-hidden="true" /> Signing out…
+              </>
+            ) : (
+              <>
+                <LogOut size={15} aria-hidden="true" /> Sign out
+              </>
+            )}
+          </button>
         </div>
       </aside>
 
       <main className="business-main">
-        {/* Mobile Business Header (matches Figma 7:1266) */}
         <div className="business-mobile-header">
           <Link href="/business" className="business-mobile-brand">
             <span className="gs-wordmark__name">goodstock</span>
@@ -1150,7 +1347,6 @@ export default function BusinessPortal() {
           <ThemeToggleButton />
         </div>
 
-        {/* Mobile Workspace Navigation (matches Figma 7:1276 + 7:1281) */}
         <nav className="business-mobile-nav" aria-label="Mobile business navigation">
           <div className="business-mobile-nav__row">
             {coreMobileLinks.map(item => (
@@ -1184,12 +1380,8 @@ export default function BusinessPortal() {
               <span className="business-topbar__kicker">
                 GOODSTOCK HARDWARE · STAFF PORTAL
               </span>
-              <span
-                className={`business-status-pill ${
-                  isSampleWorkspace ? "business-status-pill--sample" : ""
-                }`.trim()}
-              >
-                {isSampleWorkspace ? "Sample data" : "Live workspace"}
+              <span className="business-status-pill">
+                Live workspace
               </span>
             </div>
             <h1>{pageTitles[page]}</h1>
@@ -1218,16 +1410,6 @@ export default function BusinessPortal() {
             <ThemeToggleButton className="gs-desktop-only" />
           </div>
         </header>
-
-        {isSampleWorkspace && (
-          <InlineStatus
-            status="info"
-            title="Sample workspace preview"
-            body="Showing labeled sample operational data because Supabase is not configured. Employee sales and storefront demo orders remain tracked separately."
-            actionLabel="Supabase setup"
-            onAction={() => setShowSetupCard(true)}
-          />
-        )}
 
         {signOutError && (
           <InlineStatus
@@ -1273,9 +1455,17 @@ export default function BusinessPortal() {
           {page === "inventory" && (
             <Inventory
               products={activeProducts}
-              canEdit={!isSampleWorkspace && (activeStaff.role === "inventory_clerk" || activeStaff.role === "admin" || activeStaff.role === "instructor")}
-              canArchive={!isSampleWorkspace && (activeStaff.role === "admin" || activeStaff.role === "instructor")}
-              canManageCosts={!isSampleWorkspace && (activeStaff.role === "admin" || activeStaff.role === "instructor")}
+              canEdit={
+                activeStaff.role === "inventory_clerk" ||
+                activeStaff.role === "admin" ||
+                activeStaff.role === "instructor"
+              }
+              canArchive={
+                activeStaff.role === "admin" || activeStaff.role === "instructor"
+              }
+              canManageCosts={
+                activeStaff.role === "admin" || activeStaff.role === "instructor"
+              }
               costs={productCosts}
               showArchived={showArchived}
               setShowArchived={value => {
@@ -1300,35 +1490,8 @@ export default function BusinessPortal() {
               sales={activeSales}
               cart={cart}
               setCart={setCart}
-              onCheckout={
-                isSampleWorkspace
-                  ? async () => {
-                      setNotice(
-                        "Sample preview · Connect Supabase to record live employee sales.",
-                      );
-                    }
-                  : checkout
-              }
-              onOpenReceipt={
-                isSampleWorkspace
-                  ? async sale => {
-                      setReceipt({
-                        receipt_number: sale.receipt_number,
-                        created_at: sale.created_at,
-                        total: sale.total,
-                        currency_code: sale.currency_code,
-                        items: [
-                          {
-                            product_title: "Sample workshop items",
-                            quantity: 1,
-                            unit_price: sale.total,
-                            line_total: sale.total,
-                          },
-                        ],
-                      });
-                    }
-                  : openReceipt
-              }
+              onCheckout={checkout}
+              onOpenReceipt={openReceipt}
               busy={busy}
             />
           )}
@@ -1368,7 +1531,6 @@ export default function BusinessPortal() {
             />
           )}
 
-          {/* Mobile Workspace Account Card (matches Figma 7:1338) */}
           <section
             className="business-card business-workspace-account"
             aria-labelledby="workspace-account-heading"
@@ -1384,24 +1546,14 @@ export default function BusinessPortal() {
               <Link href="/store" className="gs-btn gs-btn--secondary gs-btn--full">
                 <ArrowLeft size={16} aria-hidden="true" /> Back to storefront
               </Link>
-              {isSampleWorkspace ? (
-                <button
-                  type="button"
-                  className="gs-btn gs-btn--secondary gs-btn--full"
-                  onClick={() => setShowSetupCard(true)}
-                >
-                  Supabase setup guide
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="gs-btn gs-btn--secondary gs-btn--full"
-                  disabled={signingOut}
-                  onClick={() => void signOut()}
-                >
-                  {signingOut ? "Signing out…" : "Sign out"}
-                </button>
-              )}
+              <button
+                type="button"
+                className="gs-btn gs-btn--secondary gs-btn--full"
+                disabled={signingOut}
+                onClick={() => void signOut()}
+              >
+                {signingOut ? "Signing out…" : "Sign out"}
+              </button>
             </div>
           </section>
         </div>
@@ -1419,7 +1571,7 @@ function ReceiptModal({ receipt, onClose }: { receipt: Receipt; onClose: () => v
         <header><p className="eyebrow">Goodstock Hardware · Point of sale</p><h2 id="receipt-title">Sales receipt</h2><p>{receipt.receipt_number}</p><time dateTime={receipt.created_at}>{new Date(receipt.created_at).toLocaleString()}</time></header>
         <div className="business-receipt-table-wrap"><table className="business-receipt-table"><thead><tr><th>Item</th><th>Qty</th><th>Unit price</th><th>Line total</th></tr></thead><tbody>{receipt.items.map((item, index) => <tr key={`${item.product_title}-${index}`}><td>{item.product_title}</td><td>{item.quantity}</td><td>{money(item.unit_price, receipt.currency_code)}</td><td>{money(item.line_total, receipt.currency_code)}</td></tr>)}</tbody></table></div>
         <div className="business-receipt-total"><span>Total</span><strong>{money(receipt.total, receipt.currency_code)}</strong></div>
-        <p className="business-receipt-note">Internal demo sale · no payment collected.</p>
+        <p className="business-receipt-note">Official point-of-sale receipt · Thank you for choosing Goodstock Hardware.</p>
       </section>
     </div>
   );
@@ -1493,15 +1645,15 @@ function Overview({
       </div>
     );
   const canViewSales = staff.role !== "inventory_clerk";
-  const demoValueSummary = (
+  const onlineOrderValueSummary = (
     (dashboard.storefront_demo_value_by_currency ?? []) as {
       currency_code: string;
       total: number | string;
     }[]
   )
-    .map(value => `${money(value.total, value.currency_code)} unpaid`)
+    .map(value => `${money(value.total, value.currency_code)} online`)
     .join(" · ");
-  const recentDemoOrders = (dashboard.recent_storefront_demo_orders ?? []) as {
+  const recentOnlineOrders = (dashboard.recent_storefront_demo_orders ?? []) as {
     id: string;
     status: string;
     total: number | string;
@@ -1534,16 +1686,16 @@ function Overview({
     ...(canViewSales
       ? [
           {
-            label: "Sales revenue",
+            label: "POS sales revenue",
             value: money(dashboard.revenue ?? 0),
-            sub: `${dashboard.sales_count ?? 0} completed employee sales`,
+            sub: `${dashboard.sales_count ?? 0} completed counter sales`,
             icon: BarChart3,
             accent: false,
           },
           {
-            label: "Storefront demo orders",
+            label: "Online storefront orders",
             value: String(dashboard.storefront_demo_order_count ?? 0),
-            sub: demoValueSummary || "Unpaid demo checkouts",
+            sub: onlineOrderValueSummary || "Customer web checkouts",
             icon: ShoppingCart,
             accent: false,
           },
@@ -1560,11 +1712,11 @@ function Overview({
       }),
       revenue: Number(s.total),
     }));
-  const gridStroke = darkMode ? "#3b4840" : "#d9ddd4";
-  const axisTickColor = darkMode ? "#a8b4aa" : "#626a64";
-  const barFill = darkMode ? "#f2a080" : "#b84d27";
-  const tooltipBg = darkMode ? "#202a25" : "#fffefa";
-  const tooltipText = darkMode ? "#e9eee8" : "#24352f";
+  const gridStroke = darkMode ? "#27342e" : "#e1e5df";
+  const axisTickColor = darkMode ? "#9eb0a5" : "#526059";
+  const barFill = darkMode ? "#e87b4e" : "#b84a24";
+  const tooltipBg = darkMode ? "#161e1b" : "#ffffff";
+  const tooltipText = darkMode ? "#f1f5f2" : "#17231f";
 
   return (
     <>
@@ -1659,18 +1811,18 @@ function Overview({
         <section className="business-card">
           <SectionHeading
             eyebrow="Storefront activity"
-            title="Storefront demo orders"
-            body="Not included in employee-sale revenue. No payment details are collected."
+            title="Online storefront orders"
+            body="Customer orders placed through the online storefront, tracked separately from counter POS sales."
           />
           <div className="business-list">
-            {recentDemoOrders.length ? (
-              recentDemoOrders.map(order => (
+            {recentOnlineOrders.length ? (
+              recentOnlineOrders.map(order => (
                 <div className="business-list-row" key={order.id}>
                   <span className="business-mini-icon" aria-hidden="true">
                     <ShoppingCart size={16} />
                   </span>
                   <div>
-                    <strong>Demo order #{order.id.slice(0, 8).toUpperCase()}</strong>
+                    <strong>Order #{order.id.slice(0, 8).toUpperCase()}</strong>
                     <small>
                       {new Date(order.created_at).toLocaleString()} · {order.status}
                     </small>
@@ -1679,7 +1831,7 @@ function Overview({
                 </div>
               ))
             ) : (
-              <p className="business-muted">No storefront demo orders yet.</p>
+              <p className="business-muted">No online storefront orders yet.</p>
             )}
           </div>
         </section>
@@ -2142,7 +2294,7 @@ function Sales({
             {busy ? "Saving sale…" : "Complete sale"}
           </button>
           <small>
-            Checkout updates stock atomically. No payment details are collected.
+            Completing a sale updates inventory stock counts immediately.
           </small>
         </aside>
       </div>

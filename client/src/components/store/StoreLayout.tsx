@@ -1,8 +1,19 @@
-import { ArrowRight, ArrowUpRight, Menu, Search, ShoppingBag, User, X } from "lucide-react";
+import {
+  ArrowRight,
+  ArrowUpRight,
+  LogOut,
+  Menu,
+  Search,
+  ShoppingBag,
+  Truck,
+  User,
+  X,
+} from "lucide-react";
 import { FormEvent, ReactNode, useEffect, useState } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { useDemoCart } from "@/lib/cart";
 import { ThemeToggleButton } from "@/components/store/GoodstockControls";
+import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 
 const SHOP_CATEGORIES = [
@@ -24,6 +35,7 @@ export default function StoreLayout({ children }: { children: ReactNode }) {
   const cartItems = useDemoCart();
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const { theme, toggleTheme } = useTheme();
+  const { user, signOut } = useCustomerAuth();
 
   useEffect(() => {
     const params = new URLSearchParams(searchString);
@@ -40,6 +52,8 @@ export default function StoreLayout({ children }: { children: ReactNode }) {
   const showContinueShopping =
     location === "/account" || location === "/cart" || location.startsWith("/products/");
 
+  const firstName = user?.displayName?.trim().split(/\s+/)[0] || "Account";
+
   const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmed = headerQuery.trim();
@@ -51,6 +65,14 @@ export default function StoreLayout({ children }: { children: ReactNode }) {
     setMenuOpen(false);
   };
 
+  const handleMobileSignOut = async () => {
+    setMenuOpen(false);
+    const res = await signOut();
+    if (!res.error) {
+      setLocation("/sign-in?signedOut=1", { replace: true });
+    }
+  };
+
   return (
     <div className="store-shell" data-inert-target="true">
       <a className="skip-link" href="#main-content">
@@ -58,19 +80,18 @@ export default function StoreLayout({ children }: { children: ReactNode }) {
       </a>
 
       <header className="gs-header">
-        {/* Desktop Service Bar / Mobile Demo Store Notice */}
         <div className="gs-service-bar">
           <div className="page-width gs-service-bar__inner">
             <span className="gs-service-bar__tagline">
               Good tools. Clear choices. Back to the work.
             </span>
-            <span className="gs-service-bar__demo">
-              Demo store · No payment details collected
+            <span className="gs-service-bar__info">
+              <Truck size={14} aria-hidden="true" />
+              <span>Free standard shipping on orders ₱1,500+ · Counter pickup ready</span>
             </span>
           </div>
         </div>
 
-        {/* Main Navigation Bar (88px) */}
         <div className="gs-main-nav">
           <div className="page-width gs-main-nav__inner">
             <Link
@@ -96,20 +117,20 @@ export default function StoreLayout({ children }: { children: ReactNode }) {
                 type="search"
                 value={headerQuery}
                 onChange={event => setHeaderQuery(event.target.value)}
-                placeholder="Search hardware"
+                placeholder="Search fasteners, tools, electrical…"
                 autoComplete="off"
               />
             </form>
 
             <div className="gs-main-nav__actions">
-              <ThemeToggleButton className="gs-desktop-only" />
+              <ThemeToggleButton className="gs-hide-compact" />
 
               <Link
                 href="/account"
                 className={`gs-nav-action gs-desktop-only ${location === "/account" ? "is-active" : ""}`.trim()}
               >
                 <User size={17} aria-hidden="true" />
-                <span>Account</span>
+                <span>{firstName}</span>
               </Link>
 
               <Link
@@ -136,7 +157,6 @@ export default function StoreLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        {/* Desktop Shop Navigation Bar (48px) */}
         <div className="gs-shop-nav">
           <div className="page-width gs-shop-nav__inner">
             <nav className="gs-shop-nav__links" aria-label="Shop categories">
@@ -159,20 +179,18 @@ export default function StoreLayout({ children }: { children: ReactNode }) {
             </nav>
 
             <div className="gs-shop-nav__right">
-              {showContinueShopping ? (
+              {showContinueShopping && (
                 <Link href="/products" className="gs-continue-link">
                   Continue shopping <ArrowRight size={15} aria-hidden="true" />
                 </Link>
-              ) : (
-                <Link href="/business" className="gs-workspace-link">
-                  Business workspace <ArrowUpRight size={14} aria-hidden="true" />
-                </Link>
               )}
+              <Link href="/business" className="gs-workspace-link">
+                Business workspace <ArrowUpRight size={14} aria-hidden="true" />
+              </Link>
             </div>
           </div>
         </div>
 
-        {/* Mobile Drawer */}
         {menuOpen && (
           <div id="gs-mobile-menu" className="gs-mobile-drawer">
             <div className="page-width gs-mobile-drawer__inner">
@@ -190,7 +208,7 @@ export default function StoreLayout({ children }: { children: ReactNode }) {
                   type="search"
                   value={headerQuery}
                   onChange={event => setHeaderQuery(event.target.value)}
-                  placeholder="Search hardware"
+                  placeholder="Search fasteners, tools, electrical…"
                   autoComplete="off"
                 />
               </form>
@@ -218,25 +236,31 @@ export default function StoreLayout({ children }: { children: ReactNode }) {
                   className={location === "/account" ? "is-active" : ""}
                   onClick={() => setMenuOpen(false)}
                 >
-                  Your account
+                  Account &amp; orders ({firstName})
                 </Link>
-                <Link
-                  href="/business"
-                  onClick={() => setMenuOpen(false)}
-                >
+                <Link href="/business" onClick={() => setMenuOpen(false)}>
                   Business workspace
                 </Link>
               </nav>
 
-              {toggleTheme && (
+              <div className="gs-mobile-drawer__footer">
+                {toggleTheme && (
+                  <button
+                    type="button"
+                    className="gs-btn gs-btn--secondary gs-btn--full"
+                    onClick={toggleTheme}
+                  >
+                    {theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+                  </button>
+                )}
                 <button
                   type="button"
-                  className="gs-btn gs-btn--secondary gs-btn--full"
-                  onClick={toggleTheme}
+                  className="gs-btn gs-btn--ghost gs-btn--full"
+                  onClick={() => void handleMobileSignOut()}
                 >
-                  {theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+                  <LogOut size={16} aria-hidden="true" /> Sign out
                 </button>
-              )}
+              </div>
             </div>
           </div>
         )}
@@ -246,15 +270,23 @@ export default function StoreLayout({ children }: { children: ReactNode }) {
 
       <footer className="gs-footer">
         <div className="page-width gs-footer__inner">
-          <span className="gs-footer__brand">© Goodstock Hardware</span>
-          <p className="gs-footer__legal">
-            Demo account data is handled by Supabase. No payment details are collected.
-          </p>
-          <div className="gs-footer__links">
-            <Link href="/products" className="gs-footer__shop-link">
-              Shop hardware <span aria-hidden="true">↗</span>
-            </Link>
+          <div className="gs-footer__brand-group">
+            <span className="gs-footer__brand">Goodstock Hardware</span>
+            <p className="gs-footer__legal">
+              © 2026 Goodstock Hardware Supply. Quality fasteners, hand tools, and electrical essentials.
+            </p>
           </div>
+          <nav className="gs-footer__links" aria-label="Footer navigation">
+            <Link href="/products" className="gs-footer__shop-link">
+              Shop catalog
+            </Link>
+            <Link href="/account" className="gs-footer__shop-link">
+              Orders &amp; account
+            </Link>
+            <Link href="/business" className="gs-footer__shop-link">
+              Staff workspace <span aria-hidden="true">↗</span>
+            </Link>
+          </nav>
         </div>
       </footer>
     </div>
