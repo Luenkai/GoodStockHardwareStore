@@ -162,6 +162,18 @@ export default function Products() {
     onlyAvailable ||
     sort !== "featured";
 
+  const inStockCount = useMemo(
+    () => products.filter(product => productIsAvailable(product)).length,
+    [products],
+  );
+
+  const aisleCount = (aisleKey: string) => {
+    if (aisleKey === "All") return products.length;
+    return products.filter(
+      product => (product.productType || "").toLowerCase() === aisleKey.toLowerCase(),
+    ).length;
+  };
+
   return (
     <StoreLayout>
       <main id="main-content" className="page-width gs-catalog-page">
@@ -172,8 +184,22 @@ export default function Products() {
               Parts for projects that need to get done.
             </h1>
             <p className="gs-page-lead">
-              Browse trade-grade fasteners, tools, and electrical components, compare specifications, and add what you need to your order.
+              Browse trade-grade fasteners, tools, and electrical components, compare specifications, and build a cart when you&apos;re ready.
             </p>
+          </div>
+          <div className="gs-catalog-intro__stats" aria-label="Catalog summary">
+            <div>
+              <strong>{pageQuery.isLoading ? "—" : products.length}</strong>
+              <span>Catalog SKUs</span>
+            </div>
+            <div>
+              <strong>{pageQuery.isLoading ? "—" : inStockCount}</strong>
+              <span>Ready to ship</span>
+            </div>
+            <div>
+              <strong>Same day</strong>
+              <span>Counter pickup</span>
+            </div>
           </div>
         </section>
 
@@ -222,6 +248,7 @@ export default function Products() {
                 {aisles.map(aisle => {
                   const isSelected =
                     category.toLowerCase() === aisle.key.toLowerCase();
+                  const count = aisleCount(aisle.key);
                   return (
                     <button
                       key={aisle.key}
@@ -231,6 +258,9 @@ export default function Products() {
                       onClick={() => selectCategory(aisle.key)}
                     >
                       <span>{aisle.label}</span>
+                      {!pageQuery.isLoading && (
+                        <small className="gs-aisle-btn__count">{count}</small>
+                      )}
                     </button>
                   );
                 })}
@@ -258,7 +288,8 @@ export default function Products() {
             </div>
 
             <div className="gs-reassurance-box">
-              <p>Compare sizes, materials, and compatibility before you order.</p>
+              <strong>Clear product details</strong>
+              <p>Compare sizes, materials, and compatibility before you choose.</p>
             </div>
           </aside>
 
