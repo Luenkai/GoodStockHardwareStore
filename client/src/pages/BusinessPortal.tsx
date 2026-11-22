@@ -732,7 +732,7 @@ export default function BusinessPortal() {
           Configure the existing Supabase URL and publishable key, then apply{" "}
           <code>supabase/business-app.sql</code>.
         </p>
-        <Link className="button button--dark" href="/">
+        <Link className="button button--dark" href="/store">
           Return to storefront
         </Link>
       </div>
@@ -756,7 +756,7 @@ export default function BusinessPortal() {
         <Link className="button button--accent" href="/account">
           Sign in or create account
         </Link>
-        <Link className="quiet-link" href="/">
+        <Link className="quiet-link" href="/store">
           Back to the hardware store <ArrowLeft size={16} />
         </Link>
       </div>
@@ -788,7 +788,7 @@ export default function BusinessPortal() {
         <button className="button button--dark" onClick={() => void signOut()}>
           <LogOut size={16} /> Sign out
         </button>
-        <Link className="quiet-link" href="/">
+        <Link className="quiet-link" href="/store">
           Back to storefront <ArrowLeft size={16} />
         </Link>
       </div>
@@ -837,7 +837,7 @@ export default function BusinessPortal() {
             })}
         </nav>
         <div className="business-sidebar__bottom">
-          <Link href="/" className="business-side-back">
+          <Link href="/store" className="business-side-back">
             <ArrowLeft size={16} /> Back to storefront
           </Link>
           <div className="business-user">

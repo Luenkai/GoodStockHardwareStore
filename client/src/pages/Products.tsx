@@ -112,6 +112,10 @@ export default function Products() {
               </div>
               <label className="available-filter"><input type="checkbox" checked={availableOnly} onChange={event => setAvailableOnly(event.target.checked)} /><span className="checkbox-ui" aria-hidden="true" /><SlidersHorizontal size={16} aria-hidden="true" /> Demo availability</label>
             </div>
+            <p className="catalog-demo-note" role="note">
+              <span aria-hidden="true">Demo catalog</span>
+              Prices, availability, and product imagery are illustrative. Stock is checked against the current demo storefront data.
+            </p>
             {query.isLoading && products.length === 0 ? (
               <div className="product-grid product-grid--loading" aria-busy="true"><span className="sr-only" role="status" aria-live="polite">Loading products…</span>{[1, 2].map(i => <div className="skeleton product-skeleton" key={i} />)}</div>
             ) : shown.length === 0 ? (

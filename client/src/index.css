@@ -191,6 +191,8 @@ main { flex: 1; }
 .filter-chip { min-height: 38px; padding: 0 15px; border: 1px solid transparent; border-radius: 999px; background: #e8e9e2; color: #45554b; font-size: 11px; font-weight: 700; cursor: pointer; transition: background 150ms ease, color 150ms ease, border-color 150ms ease; }
 .filter-chip:hover { border-color: #b8c0b5; }
 .filter-chip.is-active { background: var(--ink); color: #fff; }
+.catalog-demo-note { display: flex; align-items: center; gap: 10px; margin: 18px 0 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--surface-soft) 72%, transparent); color: var(--muted); font-size: 11px; line-height: 1.5; }
+.catalog-demo-note span { flex: 0 0 auto; color: var(--ink); font-size: 10px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
 .available-filter { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; color: #47574d; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; }
 .available-filter input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .checkbox-ui { width: 19px; height: 19px; display: grid; place-items: center; border: 1px solid #859186; border-radius: 5px; background: var(--surface); }
@@ -778,12 +780,16 @@ main { flex: 1; }
 .dark .product-card,.dark .product-card__media,.dark .product-card__body,.dark .product-detail-card,.dark .cart-panel,.dark .catalog-toolbar { background:#202a25; color:var(--ink); border-color:var(--line); }
 .dark .button--dark { background:#dce8dc; color:#1b2820; }
 .dark .button--dark:hover { background:#c6d8c8; }
-.dark .button--accent { background:#d9683e; color:white; }
+.dark .button--accent { background:#f2a080; color:#24352f; box-shadow:0 8px 16px rgba(0,0,0,.18); }
+.dark .button--accent:hover:not(:disabled) { background:#f7b294; color:#24352f; }
+.dark .catalog-demo-note { background:#202a25; border-color:var(--line); color:#b7c2b9; }
+.dark .catalog-demo-note span { color:#f2a080; }
 .dark .site-frame main h1,.dark .site-frame main h2,.dark .site-frame main h3 { color:var(--ink); }
 .dark .category-card,.dark .hero-showcase,.dark .value-strip { background:#202a25; color:var(--ink); }
 .dark .value-strip { border-color:var(--line); }
 .dark .account-benefits>div { border-color:var(--line); }
 .dark .business-banner { background:#27352d; color:#dce8dc; }
+@media (max-width: 560px) { .catalog-demo-note { align-items: flex-start; flex-direction: column; gap: 5px; } }
 @media(max-width:600px){.entry-page{padding:20px}.entry-card{padding:28px 22px}.entry-actions{display:grid}.customer-profile{padding:17px}.customer-profile__form{grid-template-columns:1fr}.customer-profile__form h3,.customer-profile__form button,.customer-profile__notice{grid-column:auto}}
 
 /* Figma alignment: deep-green command rail, cream workspace surfaces, and
@@ -833,6 +839,11 @@ main { flex: 1; }
 .business-train-card h3,
 .business-predict-form h3,
 .business-results h3 { letter-spacing: -.06em; }
+.business-form label input,
+.business-form label select,
+.business-predict-form input,
+.business-predict-form select,
+.business-role-form select { min-height: 48px; }
 
 .dark .business-shell,
 .dark .business-main { background: #141b18; }
@@ -843,4 +854,4 @@ main { flex: 1; }
 .dark .business-sidebar nav a:hover,
 .dark .business-side-back:hover,
 .dark .business-signout:hover { background: rgba(255,255,255,.09); color: #f2a080; }
-.dark .business-sidebar nav a.is-active { background: #d9683e; color: #fff; }
+.dark .business-sidebar nav a.is-active { background: #f2a080; color: #24352f; }
