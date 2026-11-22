@@ -15,12 +15,14 @@ import {
   ChartNoAxesCombined,
   ClipboardList,
   Database,
+  LayoutGrid,
   LoaderCircle,
   LogOut,
   Package,
   Plus,
   Printer,
   Save,
+  Search,
   Shield,
   ShoppingCart,
   Users,
@@ -114,13 +116,13 @@ const roleLinks = [
   {
     href: "/business",
     label: "Overview",
-    icon: ChartNoAxesCombined,
+    icon: LayoutGrid,
     roles: ["inventory_clerk", "sales_personnel", "admin", "instructor"],
   },
   {
     href: "/business/inventory",
     label: "Inventory",
-    icon: Warehouse,
+    icon: Package,
     roles: ["inventory_clerk", "admin", "instructor"],
   },
   {
@@ -132,7 +134,7 @@ const roleLinks = [
   {
     href: "/business/analytics",
     label: "Knowledge analysis",
-    icon: Activity,
+    icon: ChartNoAxesCombined,
     roles: ["admin", "instructor"],
   },
   {
@@ -1144,17 +1146,26 @@ export default function BusinessPortal() {
     roleLinks.some(
       item => item.href === location && item.roles.includes(activeStaff.role as never)
     );
+  const breadcrumbLabels: Record<string, string> = {
+    overview: "Overview",
+    inventory: "Inventory",
+    sales: "Sales",
+    analytics: "Knowledge analysis",
+    users: "User management",
+  };
   const pageTitles: Record<string, string> = {
     overview: `Welcome, ${greetingName(activeUser?.displayName, activeUser?.email)}.`,
-    inventory: "Inventory management",
-    sales: "Sales transactions",
+    inventory: showArchived ? "Archived products" : "Inventory management",
+    sales: "Record a sale",
     analytics: "Knowledge analysis",
     users: "User management",
   };
   const pageSubtitles: Record<string, string> = {
-    overview: "Here’s what needs your attention.",
-    inventory: "Manage shared stock levels, reorder targets, and storefront listings.",
-    sales: "Record counter transactions and generate point-of-sale receipts.",
+    overview: "Here’s what needs your attention across stock and sales.",
+    inventory: showArchived
+      ? "Archived products are hidden from the storefront. Restore an item to make it available again."
+      : "Keep stock, prices, and replenishment targets in view.",
+    sales: "Prices and availability are verified against live inventory.",
     analytics: "Train and compare demand models against workshop sales history.",
     users: "Review staff access requests and manage workspace roles.",
   };
@@ -1281,12 +1292,22 @@ export default function BusinessPortal() {
 
   const csvRows = parseDataset();
   const shownRows = csvRows.slice(datasetPage * 15, datasetPage * 15 + 15);
+  const canEditInventory =
+    activeStaff.role === "inventory_clerk" ||
+    activeStaff.role === "admin" ||
+    activeStaff.role === "instructor";
+  const canArchiveInventory =
+    activeStaff.role === "admin" || activeStaff.role === "instructor";
+  const canManageCosts =
+    activeStaff.role === "admin" || activeStaff.role === "instructor";
+  const hasCartItems = Object.values(cart).some(qty => qty > 0);
+
   return (
     <div className="business-shell" data-inert-target="true">
       <aside className="business-sidebar">
         <Link className="business-brand" href="/business">
           <span className="gs-wordmark__name">goodstock</span>
-          <small>Business workspace · {roleNames[activeStaff.role]}</small>
+          <small>business workspace</small>
         </Link>
         <div className="business-sidebar__label">Workspace</div>
         <nav aria-label="Business workspace">
@@ -1305,18 +1326,13 @@ export default function BusinessPortal() {
           })}
         </nav>
         <div className="business-sidebar__bottom">
-          <Link href="/store" className="business-side-back">
-            <ArrowLeft size={16} aria-hidden="true" /> Back to storefront
-          </Link>
           <div className="business-user">
-            <span className="business-avatar">
-              {greetingName(activeUser.displayName, activeUser.email).slice(0, 1).toUpperCase()}
-            </span>
-            <span>
-              <strong>{activeUser.displayName || activeUser.email}</strong>
-              <small>{roleNames[activeStaff.role]}</small>
-            </span>
+            <strong>{activeUser.displayName || greetingName(activeUser.displayName, activeUser.email)}</strong>
+            <small>{roleNames[activeStaff.role]}</small>
           </div>
+          <Link href="/store" className="business-side-back">
+            Back to storefront
+          </Link>
           <button
             type="button"
             className="business-signout"
@@ -1328,40 +1344,41 @@ export default function BusinessPortal() {
                 <LoaderCircle size={15} className="spin" aria-hidden="true" /> Signing out…
               </>
             ) : (
-              <>
-                <LogOut size={15} aria-hidden="true" /> Sign out
-              </>
+              "Sign out"
             )}
           </button>
         </div>
       </aside>
 
       <main className="business-main">
+        <div className="business-header-bar gs-desktop-only">
+          <nav aria-label="Workspace breadcrumb" className="business-breadcrumb">
+            <Link href="/business">Workspace</Link>
+            <span aria-hidden="true">/</span>
+            <span>{breadcrumbLabels[page]}</span>
+          </nav>
+          <div className="business-header-bar__right">
+            <ThemeToggleButton />
+            <span className="business-status-pill">
+              {roleNames[activeStaff.role]}
+            </span>
+          </div>
+        </div>
+
         <div className="business-mobile-header">
           <Link href="/business" className="business-mobile-brand">
             <span className="gs-wordmark__name">goodstock</span>
             <span className="business-mobile-brand__sub">
-              Business workspace · {roleNames[activeStaff.role]}
+              business workspace · {roleNames[activeStaff.role]}
             </span>
           </Link>
           <ThemeToggleButton />
         </div>
 
-        <nav className="business-mobile-nav" aria-label="Mobile business navigation">
-          <div className="business-mobile-nav__row">
-            {coreMobileLinks.map(item => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={location === item.href ? "is-active" : ""}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </div>
-          {adminMobileLinks.length > 0 && (
-            <div className="business-mobile-nav__row business-mobile-nav__row--admin">
-              {adminMobileLinks.map(item => (
+        <div className="business-body">
+          <nav className="business-mobile-nav" aria-label="Mobile business navigation">
+            <div className="business-mobile-nav__row">
+              {coreMobileLinks.map(item => (
                 <Link
                   key={item.href}
                   href={item.href}
@@ -1371,191 +1388,218 @@ export default function BusinessPortal() {
                 </Link>
               ))}
             </div>
-          )}
-        </nav>
-
-        <header className="business-topbar">
-          <div className="business-topbar__intro">
-            <div className="business-topbar__meta">
-              <span className="business-topbar__kicker">
-                GOODSTOCK HARDWARE · STAFF PORTAL
-              </span>
-              <span className="business-status-pill">
-                Live workspace
-              </span>
-            </div>
-            <h1>{pageTitles[page]}</h1>
-            <p className="business-topbar__sub">{pageSubtitles[page]}</p>
-          </div>
-
-          <div className="business-topbar__actions">
-            {page === "overview" && (
-              <Link
-                href={
-                  activeStaff.role === "inventory_clerk"
-                    ? "/business/inventory"
-                    : "/business/sales"
-                }
-                className="gs-btn gs-btn--primary"
-              >
-                {activeStaff.role === "inventory_clerk"
-                  ? "Open inventory"
-                  : "Record sale"}
-              </Link>
+            {adminMobileLinks.length > 0 && (
+              <div className="business-mobile-nav__row business-mobile-nav__row--admin">
+                {adminMobileLinks.map(item => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={location === item.href ? "is-active" : ""}
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
             )}
-            <span className="business-role-pill gs-desktop-only">
-              <Shield size={14} aria-hidden="true" />
-              {roleNames[activeStaff.role]}
-            </span>
-            <ThemeToggleButton className="gs-desktop-only" />
-          </div>
-        </header>
+          </nav>
 
-        {signOutError && (
-          <InlineStatus
-            status="error"
-            title="Couldn’t sign you out"
-            body={signOutError}
-            actionLabel="Try signing out again"
-            onAction={() => void signOut()}
-          />
-        )}
-
-        {authError && (
-          <div className="business-banner" role="alert">
-            {authError}
-            <button
-              onClick={() => {
-                setAuthError("");
-                if (page === "overview") void refreshDashboard();
-              }}
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
-        {notice && (
-          <div
-            className="business-banner business-banner--notice"
-            role="status"
-          >
-            {notice}
-            <button onClick={() => setNotice("")}>Dismiss</button>
-          </div>
-        )}
-        <div className="business-content" data-role={activeStaff.role}>
-          {page === "overview" && (
-            <Overview
-              dashboard={activeDashboard}
-              staff={activeStaff}
-              darkMode={theme === "dark"}
-              onRetry={() => void refreshDashboard()}
-            />
-          )}
-          {page === "inventory" && (
-            <Inventory
-              products={activeProducts}
-              canEdit={
-                activeStaff.role === "inventory_clerk" ||
-                activeStaff.role === "admin" ||
-                activeStaff.role === "instructor"
-              }
-              canArchive={
-                activeStaff.role === "admin" || activeStaff.role === "instructor"
-              }
-              canManageCosts={
-                activeStaff.role === "admin" || activeStaff.role === "instructor"
-              }
-              costs={productCosts}
-              showArchived={showArchived}
-              setShowArchived={value => {
-                setShowProductForm(false);
-                setShowArchived(value);
-              }}
-              showForm={showProductForm}
-              setShowForm={setShowProductForm}
-              form={inventoryForm}
-              setForm={setInventoryForm}
-              onSubmit={addProduct}
-              onAdjust={adjustInventory}
-              onSaveStock={saveStockLevels}
-              onSaveCost={saveProductCost}
-              onSetActive={setProductActive}
-              busy={busy}
-            />
-          )}
-          {page === "sales" && (
-            <Sales
-              products={activeProducts}
-              sales={activeSales}
-              cart={cart}
-              setCart={setCart}
-              onCheckout={checkout}
-              onOpenReceipt={openReceipt}
-              busy={busy}
-            />
-          )}
-          {page === "analytics" && (
-            <Analytics
-              staff={activeStaff}
-              products={activeProducts}
-              input={analyticsInput}
-              setInput={setAnalyticsInput}
-              forecast={forecast}
-              onPredict={predict}
-              onTrain={train}
-              busy={busy}
-              models={modelArtifacts}
-              metrics={metrics}
-              datasetPage={datasetPage}
-              setDatasetPage={setDatasetPage}
-              rows={shownRows}
-              totalRows={csvRows.length}
-              csv={datasetCsvSource()}
-            />
-          )}
-          {page === "users" && (
-            <UsersPanel
-              rows={staffRows}
-              requests={accessRequests}
-              requestRoles={requestRoles}
-              setRequestRoles={setRequestRoles}
-              onReview={reviewAccessRequest}
-              email={staffEmail}
-              setEmail={setStaffEmail}
-              role={staffRole}
-              setRole={setStaffRole}
-              onAssign={assignRole}
-              onRevoke={revokeRole}
-              busy={busy}
-            />
-          )}
-
-          <section
-            className="business-card business-workspace-account"
-            aria-labelledby="workspace-account-heading"
-          >
-            <div>
-              <h2 id="workspace-account-heading">Workspace account</h2>
-              <p>
-                Signed in as <strong>{activeUser.email}</strong> ·{" "}
-                {roleNames[activeStaff.role]}
-              </p>
+          <header className="business-topbar">
+            <div className="business-topbar__intro">
+              <h1>{pageTitles[page]}</h1>
+              <p className="business-topbar__sub">{pageSubtitles[page]}</p>
             </div>
-            <div className="business-workspace-account__actions">
-              <Link href="/store" className="gs-btn gs-btn--secondary gs-btn--full">
-                <ArrowLeft size={16} aria-hidden="true" /> Back to storefront
-              </Link>
+
+            <div className="business-topbar__actions">
+              {page === "overview" && (
+                <Link
+                  href={
+                    activeStaff.role === "inventory_clerk"
+                      ? "/business/inventory"
+                      : "/business/sales"
+                  }
+                  className="gs-btn gs-btn--primary"
+                >
+                  {activeStaff.role === "inventory_clerk"
+                    ? "Open inventory"
+                    : "Record sale"}
+                </Link>
+              )}
+              {page === "inventory" && (
+                <>
+                  {canArchiveInventory && (
+                    <button
+                      type="button"
+                      className="gs-btn gs-btn--secondary"
+                      aria-pressed={showArchived}
+                      onClick={() => {
+                        setShowProductForm(false);
+                        setShowArchived(!showArchived);
+                      }}
+                    >
+                      {showArchived ? "View active" : "View archived"}
+                    </button>
+                  )}
+                  {canEditInventory && !showArchived && (
+                    <button
+                      type="button"
+                      className="gs-btn gs-btn--primary"
+                      onClick={() => setShowProductForm(!showProductForm)}
+                    >
+                      {showProductForm ? "Close form" : "Add product"}
+                    </button>
+                  )}
+                </>
+              )}
+              {page === "sales" && hasCartItems && (
+                <button
+                  type="button"
+                  className="gs-btn gs-btn--secondary"
+                  onClick={() => setCart({})}
+                >
+                  Clear sale
+                </button>
+              )}
+            </div>
+          </header>
+
+          {signOutError && (
+            <InlineStatus
+              status="error"
+              title="Couldn’t sign you out"
+              body={signOutError}
+              actionLabel="Try signing out again"
+              onAction={() => void signOut()}
+            />
+          )}
+
+          {authError && (
+            <div className="business-banner" role="alert">
+              {authError}
               <button
-                type="button"
-                className="gs-btn gs-btn--secondary gs-btn--full"
-                disabled={signingOut}
-                onClick={() => void signOut()}
+                onClick={() => {
+                  setAuthError("");
+                  if (page === "overview") void refreshDashboard();
+                }}
               >
-                {signingOut ? "Signing out…" : "Sign out"}
+                Dismiss
               </button>
             </div>
-          </section>
+          )}
+          {notice && (
+            <div
+              className="business-banner business-banner--notice"
+              role="status"
+            >
+              {notice}
+              <button onClick={() => setNotice("")}>Dismiss</button>
+            </div>
+          )}
+          <div className="business-content" data-role={activeStaff.role}>
+            {page === "overview" && (
+              <Overview
+                dashboard={activeDashboard}
+                staff={activeStaff}
+                darkMode={theme === "dark"}
+                onRetry={() => void refreshDashboard()}
+              />
+            )}
+            {page === "inventory" && (
+              <Inventory
+                products={activeProducts}
+                canEdit={canEditInventory}
+                canArchive={canArchiveInventory}
+                canManageCosts={canManageCosts}
+                costs={productCosts}
+                showArchived={showArchived}
+                setShowArchived={value => {
+                  setShowProductForm(false);
+                  setShowArchived(value);
+                }}
+                showForm={showProductForm}
+                setShowForm={setShowProductForm}
+                form={inventoryForm}
+                setForm={setInventoryForm}
+                onSubmit={addProduct}
+                onAdjust={adjustInventory}
+                onSaveStock={saveStockLevels}
+                onSaveCost={saveProductCost}
+                onSetActive={setProductActive}
+                busy={busy}
+              />
+            )}
+            {page === "sales" && (
+              <Sales
+                products={activeProducts}
+                sales={activeSales}
+                cart={cart}
+                setCart={setCart}
+                onCheckout={checkout}
+                onOpenReceipt={openReceipt}
+                busy={busy}
+              />
+            )}
+            {page === "analytics" && (
+              <Analytics
+                staff={activeStaff}
+                products={activeProducts}
+                input={analyticsInput}
+                setInput={setAnalyticsInput}
+                forecast={forecast}
+                onPredict={predict}
+                onTrain={train}
+                busy={busy}
+                models={modelArtifacts}
+                metrics={metrics}
+                datasetPage={datasetPage}
+                setDatasetPage={setDatasetPage}
+                rows={shownRows}
+                totalRows={csvRows.length}
+                csv={datasetCsvSource()}
+              />
+            )}
+            {page === "users" && (
+              <UsersPanel
+                rows={staffRows}
+                requests={accessRequests}
+                requestRoles={requestRoles}
+                setRequestRoles={setRequestRoles}
+                onReview={reviewAccessRequest}
+                email={staffEmail}
+                setEmail={setStaffEmail}
+                role={staffRole}
+                setRole={setStaffRole}
+                onAssign={assignRole}
+                onRevoke={revokeRole}
+                busy={busy}
+              />
+            )}
+
+            <section
+              className="business-card business-workspace-account"
+              aria-labelledby="workspace-account-heading"
+            >
+              <div>
+                <h2 id="workspace-account-heading">Workspace account</h2>
+                <p>
+                  Signed in as <strong>{activeUser.email}</strong> ·{" "}
+                  {roleNames[activeStaff.role]}
+                </p>
+              </div>
+              <div className="business-workspace-account__actions">
+                <Link href="/store" className="gs-btn gs-btn--secondary gs-btn--full">
+                  Back to storefront
+                </Link>
+                <button
+                  type="button"
+                  className="gs-btn gs-btn--secondary gs-btn--full"
+                  disabled={signingOut}
+                  onClick={() => void signOut()}
+                >
+                  {signingOut ? "Signing out…" : "Sign out"}
+                </button>
+              </div>
+            </section>
+          </div>
         </div>
       </main>
       {receipt && <ReceiptModal receipt={receipt} onClose={() => setReceipt(null)} />}
@@ -1908,7 +1952,7 @@ function Inventory({
   canManageCosts,
   costs,
   showArchived,
-  setShowArchived,
+  setShowArchived: _setShowArchived,
   showForm,
   setShowForm,
   form,
@@ -1938,219 +1982,493 @@ function Inventory({
   onSetActive: (p: Product, isActive: boolean) => void;
   busy: boolean;
 }) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [stockFilter, setStockFilter] = useState<"all" | "low">("all");
+  const [managedId, setManagedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (showArchived) {
+      setStockFilter("all");
+    }
+    setManagedId(null);
+  }, [showArchived]);
+
+  useEffect(() => {
+    if (!products.length) {
+      setSelectedId(null);
+      return;
+    }
+    if (!selectedId || !products.some(item => item.id === selectedId)) {
+      const firstWithCost = products.find(item => costs[item.id]);
+      setSelectedId((firstWithCost ?? products[0]).id);
+    }
+  }, [products, selectedId, costs]);
+
+  const lowStockCount = products.filter(p => p.inventory <= p.min_stock).length;
+  const totalUnits = products.reduce((sum, p) => sum + Number(p.inventory ?? 0), 0);
+
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const filteredProducts = products.filter(p => {
+    if (!showArchived && stockFilter === "low" && p.inventory > p.min_stock) {
+      return false;
+    }
+    if (!normalizedQuery) return true;
+    return (
+      p.title.toLowerCase().includes(normalizedQuery) ||
+      (p.sku ?? "").toLowerCase().includes(normalizedQuery) ||
+      p.product_type.toLowerCase().includes(normalizedQuery)
+    );
+  });
+
+  const selectedProduct =
+    products.find(item => item.id === (managedId ?? selectedId)) ??
+    filteredProducts[0] ??
+    products[0] ??
+    null;
+  const selectedCost = selectedProduct ? costs[selectedProduct.id] : undefined;
+  const selectedMarkup =
+    selectedProduct && selectedCost
+      ? calculateMarkup(Number(selectedProduct.price), Number(selectedCost.supplier_price))
+      : null;
+
   return (
-    <>
-      <SectionHeading
-        eyebrow="Product catalog"
-        title={showArchived ? "Archived products" : "Manage shared stock"}
-        body={
-          showArchived
-            ? "Archived products are hidden from the storefront. Restore one to make it available again."
-            : "Changes here update availability in the customer storefront."
-        }
-        action={
-          canEdit &&
-          !showArchived && (
-            <button
-              className="button button--accent"
-              onClick={() => setShowForm(!showForm)}
-            >
-              <Plus size={16} />
-              {showForm ? "Close form" : "Add product"}
-            </button>
-          )
-        }
-      />
-      {canArchive && (
-        <div className="business-archive-toolbar">
-          <span>
-            {showArchived
-              ? "Viewing archived products"
-              : "Need to remove a product from the shop? Archive it safely."}
-          </span>
-          <button
-            type="button"
-            className="business-archive-toggle"
-            aria-pressed={showArchived}
-            onClick={() => setShowArchived(!showArchived)}
-          >
-            {showArchived ? "View active products" : "View archived products"}
-          </button>
-        </div>
-      )}
+    <div className="business-inventory-stack">
       {showForm && !showArchived && (
         <form className="business-form business-card" onSubmit={onSubmit}>
-          <label>
-            SKU
-            <Input
-              required
-              minLength={2}
-              value={form.sku}
-              onChange={e => setForm({ ...form, sku: e.target.value })}
-            />
-          </label>
-          <label>
-            Product name
-            <Input
-              required
-              minLength={2}
-              value={form.title}
-              onChange={e => setForm({ ...form, title: e.target.value })}
-            />
-          </label>
-          <label>
-            Category
-            <select
-              value={form.product_type}
-              onChange={e => setForm({ ...form, product_type: e.target.value })}
+          <div className="business-form__header">
+            <div>
+              <h3>New catalog product</h3>
+              <p>Added items sync immediately with storefront availability.</p>
+            </div>
+            <button
+              type="button"
+              className="gs-btn gs-btn--ghost"
+              onClick={() => setShowForm(false)}
             >
-              <option>Fasteners</option>
-              <option>Tools</option>
-              <option>Power &amp; Electrical</option>
-              <option>Plumbing</option>
-              <option>Paint &amp; Supplies</option>
-              <option>Other</option>
-            </select>
-          </label>
-          <label>
-            Unit price (PHP)
-            <Input
-              required
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.price}
-              onChange={e => setForm({ ...form, price: e.target.value })}
-            />
-          </label>
-          <label>
-            Opening stock
-            <Input
-              required
-              type="number"
-              min="0"
-              step="1"
-              value={form.inventory}
-              onChange={e => setForm({ ...form, inventory: e.target.value })}
-            />
-          </label>
-          <label>
-            Minimum stock
-            <Input
-              required
-              type="number"
-              min="0"
-              step="1"
-              value={form.min_stock}
-              onChange={e => setForm({ ...form, min_stock: e.target.value })}
-            />
-          </label>
-          <label>
-            Maximum stock
-            <Input
-              required
-              type="number"
-              min={form.min_stock}
-              step="1"
-              value={form.max_stock}
-              onChange={e => setForm({ ...form, max_stock: e.target.value })}
-            />
-          </label>
-          <button className="button button--accent" disabled={busy}>
-            Save product
-          </button>
+              Cancel
+            </button>
+          </div>
+          <div className="business-form__grid">
+            <label>
+              SKU
+              <Input
+                required
+                minLength={2}
+                placeholder="e.g. GS-007"
+                value={form.sku}
+                onChange={e => setForm({ ...form, sku: e.target.value })}
+              />
+            </label>
+            <label className="business-form__span-2">
+              Product name
+              <Input
+                required
+                minLength={2}
+                placeholder="Full hardware item title"
+                value={form.title}
+                onChange={e => setForm({ ...form, title: e.target.value })}
+              />
+            </label>
+            <label>
+              Category
+              <select
+                value={form.product_type}
+                onChange={e => setForm({ ...form, product_type: e.target.value })}
+              >
+                <option>Fasteners</option>
+                <option>Tools</option>
+                <option>Power &amp; Electrical</option>
+                <option>Plumbing</option>
+                <option>Paint &amp; Supplies</option>
+                <option>Other</option>
+              </select>
+            </label>
+            <label>
+              Unit price (PHP)
+              <Input
+                required
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.price}
+                onChange={e => setForm({ ...form, price: e.target.value })}
+              />
+            </label>
+            <label>
+              Opening stock
+              <Input
+                required
+                type="number"
+                min="0"
+                step="1"
+                value={form.inventory}
+                onChange={e => setForm({ ...form, inventory: e.target.value })}
+              />
+            </label>
+            <label>
+              Minimum stock
+              <Input
+                required
+                type="number"
+                min="0"
+                step="1"
+                value={form.min_stock}
+                onChange={e => setForm({ ...form, min_stock: e.target.value })}
+              />
+            </label>
+            <label>
+              Maximum stock
+              <Input
+                required
+                type="number"
+                min={form.min_stock}
+                step="1"
+                value={form.max_stock}
+                onChange={e => setForm({ ...form, max_stock: e.target.value })}
+              />
+            </label>
+          </div>
+          <div className="business-form__actions">
+            <button className="gs-btn gs-btn--primary" disabled={busy}>
+              <Plus size={16} aria-hidden="true" />
+              Save product
+            </button>
+          </div>
         </form>
       )}
-      <div className="business-table-wrap business-card">
-        <table className="business-table">
+
+      <div className="business-inventory-toolbar">
+        <div className="business-inventory-search">
+          <label htmlFor="inventory-search-input">Search inventory</label>
+          <div className="business-search-field">
+            <Search size={16} aria-hidden="true" />
+            <input
+              id="inventory-search-input"
+              type="search"
+              placeholder="Search product name or SKU"
+              value={searchQuery}
+              onChange={event => setSearchQuery(event.target.value)}
+            />
+          </div>
+        </div>
+        {!showArchived && (
+          <div className="business-inventory-filters" role="group" aria-label="Filter inventory">
+            <button
+              type="button"
+              className={`gs-btn ${stockFilter === "all" ? "gs-btn--primary" : "gs-btn--secondary"}`}
+              aria-pressed={stockFilter === "all"}
+              onClick={() => setStockFilter("all")}
+            >
+              All active ({products.length})
+            </button>
+            <button
+              type="button"
+              className={`gs-btn ${stockFilter === "low" ? "gs-btn--primary" : "gs-btn--secondary"}`}
+              aria-pressed={stockFilter === "low"}
+              onClick={() => setStockFilter("low")}
+            >
+              Low stock ({lowStockCount})
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="business-table-wrap business-card business-inventory-card">
+        <table className="business-table business-inventory-table">
           <thead>
             <tr>
               <th>Product</th>
               <th>SKU</th>
               <th>Price</th>
               <th>In stock</th>
-              <th>Min / max · suggested replenishment</th>
-              {canManageCosts && !showArchived && <th>Supplier cost · markup</th>}
-              {canEdit && !showArchived && <th>Stock adjustment</th>}
-              {canArchive && <th>{showArchived ? "Restore" : "Catalog"}</th>}
+              <th>Min / max</th>
+              <th>Suggested</th>
+              {(canEdit || canManageCosts || canArchive) && (
+                <th>{showArchived ? "Restore" : "Catalog"}</th>
+              )}
             </tr>
           </thead>
           <tbody>
-            {products.map(p => (
-              <tr key={p.id}>
-                <td>
-                  <strong>{p.title}</strong>
-                  <small>{p.product_type}</small>
-                </td>
-                <td>{p.sku ?? "—"}</td>
-                <td>{money(p.price, p.currency_code)}</td>
-                <td>
-                  <span
-                    className={
-                      p.inventory <= p.min_stock
-                        ? "business-stock-alert"
-                        : "business-stock-ok"
-                    }
-                  >
-                    {p.inventory}
-                  </span>
-                </td>
-                <td>
-                  {canEdit && !showArchived ? (
-                    <StockLevelEditor product={p} busy={busy} onSave={onSaveStock} />
-                  ) : (
-                    <span>{p.min_stock} / {p.max_stock}<small>Top up {Math.max(p.max_stock - p.inventory, 0)} units</small></span>
-                  )}
-                </td>
-                {canManageCosts && !showArchived && (
-                  <td><SupplierCostEditor product={p} cost={costs[p.id]} busy={busy} onSave={onSaveCost} /></td>
-                )}
-                {canEdit && !showArchived && (
-                  <td>
-                    <div className="business-adjust">
-                      <button
-                        aria-label={`Remove one ${p.title}`}
-                        onClick={() => onAdjust(p, -1)}
-                        disabled={p.inventory <= 0}
-                      >
-                        −
-                      </button>
-                      <button
-                        aria-label={`Add one ${p.title}`}
-                        onClick={() => onAdjust(p, 1)}
-                      >
-                        +
-                      </button>
-                    </div>
-                  </td>
-                )}
-                {canArchive && (
-                  <td>
-                    <button
-                      type="button"
-                      className={`business-product-state-action${showArchived ? " is-restore" : ""}`}
-                      onClick={() => onSetActive(p, showArchived)}
-                      disabled={busy}
-                    >
-                      {showArchived ? "Restore" : "Archive"}
-                    </button>
-                  </td>
-                )}
-              </tr>
-            ))}
+            {filteredProducts.map(p => {
+              const isLow = p.inventory <= p.min_stock;
+              const suggested = suggestedReplenishment(p.max_stock, p.inventory);
+              const isManaging = managedId === p.id;
+              const isSelected = selectedProduct?.id === p.id;
+              const canManageRow = canEdit || canManageCosts || canArchive;
+
+              return (
+                <FragmentRow
+                  key={p.id}
+                  product={p}
+                  isLow={isLow}
+                  suggested={suggested}
+                  isManaging={isManaging}
+                  isSelected={isSelected}
+                  canManageRow={canManageRow}
+                  canEdit={canEdit}
+                  canArchive={canArchive}
+                  canManageCosts={canManageCosts}
+                  showArchived={showArchived}
+                  cost={costs[p.id]}
+                  busy={busy}
+                  onSelect={() => setSelectedId(p.id)}
+                  onToggleManage={() => {
+                    setSelectedId(p.id);
+                    setManagedId(prev => (prev === p.id ? null : p.id));
+                  }}
+                  onAdjust={onAdjust}
+                  onSaveStock={onSaveStock}
+                  onSaveCost={onSaveCost}
+                  onSetActive={onSetActive}
+                />
+              );
+            })}
           </tbody>
         </table>
-        {!products.length && (
-          <p className="business-muted">
-            {showArchived
-              ? "No archived products were found."
-              : "No active products were found."}
+        {!filteredProducts.length && (
+          <p className="business-muted business-table-empty">
+            {products.length
+              ? "No products match your current search or filter."
+              : showArchived
+                ? "No archived products were found."
+                : "No active products were found."}
           </p>
         )}
       </div>
+
+      <div className="business-replenishment-banner">
+        <strong>Targets guide replenishment. They do not change current stock.</strong>
+        <p>
+          Low stock = at or below minimum. Suggested top-up = max(target maximum − current stock, 0).
+        </p>
+      </div>
+
+      {canManageCosts && !showArchived && selectedProduct && (
+        <section
+          className="business-card business-supplier-summary"
+          aria-label="Supplier costs and markup"
+        >
+          <div className="business-supplier-summary__intro">
+            <h3>Supplier costs &amp; markup</h3>
+            <p>
+              Admins and instructors only · Selected item: <strong>{selectedProduct.title}</strong>
+            </p>
+          </div>
+          <div className="business-supplier-summary__values">
+            <strong>
+              Selling {money(selectedProduct.price, selectedProduct.currency_code)}
+              {"  ·  "}
+              {selectedCost
+                ? `Cost ${money(selectedCost.supplier_price, selectedProduct.currency_code)}`
+                : "Supplier cost not set"}
+            </strong>
+            <small>
+              {selectedCost && selectedMarkup
+                ? `Markup ${money(selectedMarkup.amount, selectedProduct.currency_code)} / ${
+                    selectedMarkup.percentage === null
+                      ? "n/a"
+                      : `${selectedMarkup.percentage.toFixed(1)}% of supplier cost`
+                  }${selectedCost.supplier_name ? ` · ${selectedCost.supplier_name}` : ""}`
+                : "Open “Manage product” on this row to record supplier cost and compute markup."}
+            </small>
+          </div>
+        </section>
+      )}
+
+      <p className="business-snapshot-line">
+        Inventory snapshot · {products.length} {showArchived ? "archived" : "active"} products ·{" "}
+        {totalUnits.toLocaleString()} units · {lowStockCount} low-stock alerts
+      </p>
+    </div>
+  );
+}
+
+function FragmentRow({
+  product: p,
+  isLow,
+  suggested,
+  isManaging,
+  isSelected,
+  canManageRow,
+  canEdit,
+  canArchive,
+  canManageCosts,
+  showArchived,
+  cost,
+  busy,
+  onSelect,
+  onToggleManage,
+  onAdjust,
+  onSaveStock,
+  onSaveCost,
+  onSetActive,
+}: {
+  product: Product;
+  isLow: boolean;
+  suggested: number;
+  isManaging: boolean;
+  isSelected: boolean;
+  canManageRow: boolean;
+  canEdit: boolean;
+  canArchive: boolean;
+  canManageCosts: boolean;
+  showArchived: boolean;
+  cost?: ProductCost;
+  busy: boolean;
+  onSelect: () => void;
+  onToggleManage: () => void;
+  onAdjust: (p: Product, d: number) => void;
+  onSaveStock: (p: Product, min: number, max: number) => void;
+  onSaveCost: (id: string, supplier: string, cost: string) => void;
+  onSetActive: (p: Product, isActive: boolean) => void;
+}) {
+  return (
+    <>
+      <tr
+        className={`${isSelected ? "is-selected " : ""}${isManaging ? "is-managing" : ""}`.trim()}
+        onClick={onSelect}
+      >
+        <td data-label="Product" className="business-cell-product">
+          <strong>{p.title}</strong>
+          <small>{p.product_type}</small>
+        </td>
+        <td data-label="SKU" className="business-cell-sku">
+          {p.sku ?? "—"}
+        </td>
+        <td data-label="Price" className="business-cell-price">
+          {money(p.price, p.currency_code)}
+        </td>
+        <td data-label="In stock">
+          <span className={isLow ? "business-stock-low" : "business-stock-ok"}>
+            {isLow ? `${p.inventory} low` : p.inventory}
+          </span>
+        </td>
+        <td data-label="Min / max">
+          {p.min_stock} / {p.max_stock}
+        </td>
+        <td data-label="Suggested">
+          + {suggested}
+        </td>
+        {canManageRow && (
+          <td data-label={showArchived ? "Restore" : "Catalog"} className="business-cell-action">
+            {showArchived && canArchive ? (
+              <button
+                type="button"
+                className="gs-btn gs-btn--secondary business-manage-btn"
+                onClick={event => {
+                  event.stopPropagation();
+                  onSetActive(p, true);
+                }}
+                disabled={busy}
+              >
+                Restore product
+              </button>
+            ) : (
+              <button
+                type="button"
+                className={`gs-btn ${isManaging ? "gs-btn--primary" : "gs-btn--secondary"} business-manage-btn`}
+                aria-expanded={isManaging}
+                onClick={event => {
+                  event.stopPropagation();
+                  onToggleManage();
+                }}
+              >
+                {isManaging ? "Done" : "Manage product"}
+              </button>
+            )}
+          </td>
+        )}
+      </tr>
+      {isManaging && !showArchived && (
+        <tr className="business-manage-row">
+          <td colSpan={7}>
+            <div className="business-manage-drawer">
+              <div className="business-manage-drawer__grid">
+                {canEdit && (
+                  <div className="business-manage-section">
+                    <span className="business-manage-section__title">Stock count</span>
+                    <p className="business-manage-section__hint">
+                      Adjust live sellable units immediately.
+                    </p>
+                    <div className="business-manage-stock-controls">
+                      <div className="business-adjust">
+                        <button
+                          type="button"
+                          aria-label={`Remove one ${p.title}`}
+                          onClick={() => onAdjust(p, -1)}
+                          disabled={busy || p.inventory <= 0}
+                        >
+                          −
+                        </button>
+                        <span>{p.inventory}</span>
+                        <button
+                          type="button"
+                          aria-label={`Add one ${p.title}`}
+                          onClick={() => onAdjust(p, 1)}
+                          disabled={busy}
+                        >
+                          +
+                        </button>
+                      </div>
+                      {suggested > 0 && (
+                        <button
+                          type="button"
+                          className="gs-btn gs-btn--secondary business-topup-btn"
+                          onClick={() => onAdjust(p, suggested)}
+                          disabled={busy}
+                        >
+                          Restock +{suggested} to max
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {canEdit && (
+                  <div className="business-manage-section">
+                    <span className="business-manage-section__title">Replenishment targets</span>
+                    <p className="business-manage-section__hint">
+                      Alert at or below minimum; suggest top-up to maximum.
+                    </p>
+                    <StockLevelEditor product={p} busy={busy} onSave={onSaveStock} />
+                  </div>
+                )}
+
+                {canManageCosts && (
+                  <div className="business-manage-section">
+                    <span className="business-manage-section__title">Supplier cost &amp; markup</span>
+                    <p className="business-manage-section__hint">
+                      Private to admins &amp; instructors (selling {money(p.price, p.currency_code)}).
+                    </p>
+                    <SupplierCostEditor product={p} cost={cost} busy={busy} onSave={onSaveCost} />
+                  </div>
+                )}
+              </div>
+
+              {canArchive && (
+                <div className="business-manage-drawer__footer">
+                  <span>
+                    Need to hide <strong>{p.title}</strong> from the storefront without deleting order history?
+                  </span>
+                  <button
+                    type="button"
+                    className="business-product-state-action"
+                    onClick={() => onSetActive(p, false)}
+                    disabled={busy}
+                  >
+                    Archive product
+                  </button>
+                </div>
+              )}
+            </div>
+          </td>
+        </tr>
+      )}
     </>
   );
 }
+
 function StockLevelEditor({ product, busy, onSave }: {
   product: Product;
   busy: boolean;
@@ -2164,12 +2482,41 @@ function StockLevelEditor({ product, busy, onSave }: {
   }, [product.id, product.min_stock, product.max_stock]);
   return (
     <div className="business-range-editor">
-      <div>
-        <label>Min <input aria-label={`Minimum stock for ${product.title}`} type="number" min="0" value={min} onChange={event => setMin(event.target.value)} /></label>
-        <label>Max <input aria-label={`Maximum stock for ${product.title}`} type="number" min={min} value={max} onChange={event => setMax(event.target.value)} /></label>
-        <button type="button" aria-label={`Save stock range for ${product.title}`} onClick={() => onSave(product, Number(min), Number(max))} disabled={busy || min === "" || max === "" || Number(max) < Number(min)}><Save size={14} /></button>
+      <div className="business-range-editor__fields">
+        <label>
+          <span>Min</span>
+          <input
+            aria-label={`Minimum stock for ${product.title}`}
+            type="number"
+            min="0"
+            value={min}
+            onChange={event => setMin(event.target.value)}
+          />
+        </label>
+        <label>
+          <span>Max</span>
+          <input
+            aria-label={`Maximum stock for ${product.title}`}
+            type="number"
+            min={min}
+            value={max}
+            onChange={event => setMax(event.target.value)}
+          />
+        </label>
+        <button
+          type="button"
+          className="gs-btn gs-btn--secondary"
+          aria-label={`Save stock range for ${product.title}`}
+          onClick={() => onSave(product, Number(min), Number(max))}
+          disabled={busy || min === "" || max === "" || Number(max) < Number(min)}
+        >
+          <Save size={15} aria-hidden="true" />
+          Save targets
+        </button>
       </div>
-      <small>Suggest {suggestedReplenishment(Number(max), product.inventory)} units</small>
+      <small>
+        Suggested top-up: + {suggestedReplenishment(Number(max), product.inventory)} units
+      </small>
     </div>
   );
 }
@@ -2189,12 +2536,46 @@ function SupplierCostEditor({ product, cost, busy, onSave }: {
   const markup = calculateMarkup(Number(product.price), Number(supplierPrice));
   return (
     <div className="business-cost-editor">
-      <input aria-label={`Supplier name for ${product.title}`} maxLength={200} placeholder="Supplier" value={supplier} onChange={event => setSupplier(event.target.value)} />
-      <div>
-        <input aria-label={`Supplier cost for ${product.title}`} type="number" min="0" step="0.01" placeholder="Cost" value={supplierPrice} onChange={event => setSupplierPrice(event.target.value)} />
-        <button type="button" aria-label={`Save supplier cost for ${product.title}`} onClick={() => onSave(product.id, supplier, supplierPrice)} disabled={busy || supplierPrice === "" || Number(supplierPrice) < 0}><Save size={14} /></button>
+      <div className="business-cost-editor__fields">
+        <label>
+          <span>Supplier</span>
+          <input
+            aria-label={`Supplier name for ${product.title}`}
+            maxLength={200}
+            placeholder="Supplier name"
+            value={supplier}
+            onChange={event => setSupplier(event.target.value)}
+          />
+        </label>
+        <label>
+          <span>Unit cost (PHP)</span>
+          <input
+            aria-label={`Supplier cost for ${product.title}`}
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="0.00"
+            value={supplierPrice}
+            onChange={event => setSupplierPrice(event.target.value)}
+          />
+        </label>
+        <button
+          type="button"
+          className="gs-btn gs-btn--secondary"
+          aria-label={`Save supplier cost for ${product.title}`}
+          onClick={() => onSave(product.id, supplier, supplierPrice)}
+          disabled={busy || supplierPrice === "" || Number(supplierPrice) < 0}
+        >
+          <Save size={15} aria-hidden="true" />
+          Save cost
+        </button>
       </div>
-      {supplierPrice !== "" && <small>Markup {money(markup.amount, product.currency_code)} · {markup.percentage === null ? "n/a" : `${markup.percentage.toFixed(2)}%`}</small>}
+      {supplierPrice !== "" && (
+        <small>
+          Markup {money(markup.amount, product.currency_code)} ·{" "}
+          {markup.percentage === null ? "n/a" : `${markup.percentage.toFixed(1)}% of supplier cost`}
+        </small>
+      )}
     </div>
   );
 }
@@ -2216,123 +2597,235 @@ function Sales({
   onOpenReceipt: (sale: Sale) => void;
   busy: boolean;
 }) {
+  const [posSearch, setPosSearch] = useState("");
+  const [posCategory, setPosCategory] = useState("All");
+
+  const availableProducts = products.filter(p => p.inventory > 0);
+  const categories = [
+    "All",
+    ...Array.from(new Set(availableProducts.map(p => p.product_type))),
+  ];
+  const filteredPosProducts = availableProducts.filter(p => {
+    if (posCategory !== "All" && p.product_type !== posCategory) return false;
+    const q = posSearch.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      p.title.toLowerCase().includes(q) ||
+      (p.sku ?? "").toLowerCase().includes(q) ||
+      p.product_type.toLowerCase().includes(q)
+    );
+  });
+
   const selected = products.filter(p => (cart[p.id] ?? 0) > 0);
+  const totalUnitsInSale = selected.reduce((sum, p) => sum + (cart[p.id] ?? 0), 0);
   const total = selected.reduce(
     (s, p) => s + Number(p.price) * (cart[p.id] ?? 0),
     0
   );
   const change = (id: string, qty: number) =>
     setCart({ ...cart, [id]: Math.max(0, qty) });
+
   return (
-    <>
-      <SectionHeading
-        eyebrow="Point of sale"
-        title="Record a sale"
-        body="Prices and availability are verified against current stock in the database."
-      />
+    <div className="business-sales-stack">
+      <div className="business-inventory-toolbar">
+        <div className="business-inventory-search">
+          <label htmlFor="pos-search-input">Search available stock</label>
+          <div className="business-search-field">
+            <Search size={16} aria-hidden="true" />
+            <input
+              id="pos-search-input"
+              type="search"
+              placeholder="Search product name or SKU"
+              value={posSearch}
+              onChange={event => setPosSearch(event.target.value)}
+            />
+          </div>
+        </div>
+        <div className="business-inventory-filters" role="group" aria-label="Filter POS category">
+          {categories.map(category => (
+            <button
+              key={category}
+              type="button"
+              className={`gs-btn ${posCategory === category ? "gs-btn--primary" : "gs-btn--secondary"}`}
+              aria-pressed={posCategory === category}
+              onClick={() => setPosCategory(category)}
+            >
+              {category === "All" ? `All available (${availableProducts.length})` : category}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="business-columns business-sales-columns">
-        <section className="business-card">
-          <h3 className="business-subhead">Available products</h3>
-          <div className="business-list">
-            {products
-              .filter(p => p.inventory > 0)
-              .map(p => (
-                <div className="business-list-row" key={p.id}>
-                  <div>
+        <section className="business-card business-pos-catalog">
+          <div className="business-pos-catalog__head">
+            <h2 className="business-subhead">Available products</h2>
+            <span>{filteredPosProducts.length} shown</span>
+          </div>
+          <div className="business-pos-list">
+            {filteredPosProducts.map(p => {
+              const inCart = cart[p.id] ?? 0;
+              const isLow = p.inventory <= p.min_stock;
+              return (
+                <div
+                  className={`business-pos-row${inCart > 0 ? " is-in-cart" : ""}`}
+                  key={p.id}
+                >
+                  <div className="business-pos-row__info">
                     <strong>{p.title}</strong>
-                    <small>
-                      {money(p.price, p.currency_code)} · {p.inventory}{" "}
-                      available
-                    </small>
+                    <div className="business-pos-row__meta">
+                      <span className="business-pos-row__price">
+                        {money(p.price, p.currency_code)}
+                      </span>
+                      <span aria-hidden="true">·</span>
+                      <span className={isLow ? "business-stock-low" : "business-pos-row__stock"}>
+                        {p.inventory} available{isLow ? " (low)" : ""}
+                      </span>
+                      {p.sku && (
+                        <>
+                          <span aria-hidden="true">·</span>
+                          <span className="business-sku">{p.sku}</span>
+                        </>
+                      )}
+                    </div>
                   </div>
                   <div className="business-adjust">
                     <button
-                      onClick={() => change(p.id, (cart[p.id] ?? 0) - 1)}
-                      disabled={!cart[p.id]}
+                      type="button"
+                      aria-label={`Remove one ${p.title} from sale`}
+                      onClick={() => change(p.id, inCart - 1)}
+                      disabled={!inCart}
                     >
                       −
                     </button>
-                    <span>{cart[p.id] ?? 0}</span>
+                    <span>{inCart}</span>
                     <button
-                      onClick={() => change(p.id, (cart[p.id] ?? 0) + 1)}
-                      disabled={(cart[p.id] ?? 0) >= p.inventory}
+                      type="button"
+                      aria-label={`Add one ${p.title} to sale`}
+                      onClick={() => change(p.id, inCart + 1)}
+                      disabled={inCart >= p.inventory}
                     >
                       +
                     </button>
                   </div>
                 </div>
-              ))}
+              );
+            })}
+            {!filteredPosProducts.length && (
+              <p className="business-muted">
+                No in-stock products match your search.
+              </p>
+            )}
           </div>
         </section>
+
         <aside className="business-card business-cart">
-          <h3 className="business-subhead">Current sale</h3>
-          {selected.length ? (
-            selected.map(p => (
-              <div className="business-sale-line" key={p.id}>
-                <span>
-                  {p.title} × {cart[p.id]}
-                </span>
-                <strong>
-                  {money(Number(p.price) * (cart[p.id] ?? 0), p.currency_code)}
-                </strong>
-              </div>
-            ))
-          ) : (
-            <p className="business-muted">
-              Add available products to start a sale.
-            </p>
-          )}
+          <div className="business-cart__head">
+            <h2 className="business-subhead">Current sale</h2>
+            {totalUnitsInSale > 0 && (
+              <span className="business-status-pill">
+                {totalUnitsInSale} {totalUnitsInSale === 1 ? "unit" : "units"}
+              </span>
+            )}
+          </div>
+
+          <div className="business-cart__lines">
+            {selected.length ? (
+              selected.map(p => (
+                <div className="business-sale-line" key={p.id}>
+                  <div className="business-sale-line__info">
+                    <strong>{p.title}</strong>
+                    <small>
+                      {money(p.price, p.currency_code)} × {cart[p.id]}
+                    </small>
+                  </div>
+                  <strong className="business-sale-line__amount">
+                    {money(Number(p.price) * (cart[p.id] ?? 0), p.currency_code)}
+                  </strong>
+                </div>
+              ))
+            ) : (
+              <p className="business-muted">
+                Add available products to start a sale.
+              </p>
+            )}
+          </div>
+
           <div className="business-sale-total">
             <span>Total</span>
             <strong>{money(total)}</strong>
           </div>
+
           <button
-            className="button button--accent"
+            type="button"
+            className="gs-btn gs-btn--primary gs-btn--full"
             disabled={!selected.length || busy}
             onClick={onCheckout}
           >
             {busy ? "Saving sale…" : "Complete sale"}
           </button>
-          <small>
+          <small className="business-cart__note">
             Completing a sale updates inventory stock counts immediately.
           </small>
         </aside>
       </div>
+
       <section className="business-card business-history">
         <SectionHeading
           eyebrow="Audit trail"
           title="Recent sales"
-          body="Latest 100 completed and voided transactions."
+          body="Completed and voided counter transactions with printable receipts."
         />
         <div className="business-table-wrap">
-          <table className="business-table">
+          <table className="business-table business-sales-table">
             <thead>
               <tr>
                 <th>Receipt</th>
                 <th>Date &amp; time</th>
                 <th>Status</th>
                 <th>Total</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>
               {sales.map(s => (
                 <tr key={s.id}>
-                  <td>
+                  <td data-label="Receipt">
                     <strong>{s.receipt_number}</strong>
-                    <button type="button" className="business-receipt-link" onClick={() => onOpenReceipt(s)} disabled={busy || s.status !== "completed"}>Open / print receipt</button>
                   </td>
-                  <td>{new Date(s.created_at).toLocaleString()}</td>
-                  <td>
-                    <span className="business-status">{s.status}</span>
+                  <td data-label="Date & time">
+                    {new Date(s.created_at).toLocaleString()}
                   </td>
-                  <td>{money(s.total, s.currency_code)}</td>
+                  <td data-label="Status">
+                    <span className={`business-status is-${s.status}`}>
+                      {s.status}
+                    </span>
+                  </td>
+                  <td data-label="Total">
+                    <strong>{money(s.total, s.currency_code)}</strong>
+                  </td>
+                  <td data-label="Action">
+                    <button
+                      type="button"
+                      className="gs-btn gs-btn--secondary business-manage-btn"
+                      onClick={() => onOpenReceipt(s)}
+                      disabled={busy || s.status !== "completed"}
+                    >
+                      Open / print receipt
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          {!sales.length && (
+            <p className="business-muted business-table-empty">
+              No sales have been recorded yet.
+            </p>
+          )}
         </div>
       </section>
-    </>
+    </div>
   );
 }
 function Analytics({
@@ -2371,12 +2864,7 @@ function Analytics({
   const previewCount = 15;
   const hasModel = (kind: string) => models.some(m => m.model_type === kind);
   return (
-    <>
-      <SectionHeading
-        eyebrow="Demand forecasting"
-        title="Knowledge analysis & prediction"
-        body="Estimate the next month’s product demand with two saved regression models."
-      />
+    <div className="business-analytics-stack">
       {staff.role === "instructor" && (
         <div className="business-model-grid">
           {(["linear_regression", "random_forest"] as const).map(kind => (
@@ -2551,7 +3039,7 @@ function Analytics({
             <SectionHeading
               eyebrow="Held-out evaluation"
               title="Model quality metrics"
-              body={`${totalRows.toLocaleString()} synthetic-but-deterministic monthly product records · 80/20 chronological split`}
+              body={`${totalRows.toLocaleString()} monthly product demand records · 80/20 chronological split`}
             />
             <div className="business-table-wrap">
               <table className="business-table">
@@ -2677,7 +3165,7 @@ function Analytics({
           </section>
         </>
       )}
-    </>
+    </div>
   );
 }
 function UsersPanel({
@@ -2715,19 +3203,72 @@ function UsersPanel({
         body="Review registered accounts and choose a staff role before approving. Requests alone never grant access."
       />
       <div className="business-card business-table-wrap">
-        <table className="business-table">
-          <thead><tr><th>Account / request</th><th>Role on approval</th><th>Review</th></tr></thead>
+        <table className="business-table business-users-table">
+          <thead>
+            <tr>
+              <th>Account / request</th>
+              <th>Role on approval</th>
+              <th>Review</th>
+            </tr>
+          </thead>
           <tbody>
             {requests.map(request => (
               <tr key={request.request_id}>
-                <td><strong>{request.email}</strong><small>{request.display_name || "No profile name"} · {new Date(request.requested_at).toLocaleString()} · {request.message || "No message"}</small></td>
-                <td><select aria-label={`Role for ${request.email}`} value={requestRoles[request.request_id] ?? "inventory_clerk"} onChange={event => setRequestRoles({ ...requestRoles, [request.request_id]: event.target.value as Role })}>{roleOptions.map(option => <option key={option} value={option}>{roleNames[option]}</option>)}</select></td>
-                <td><div className="business-review-actions"><button type="button" className="business-review-approve" onClick={() => onReview(request, "approve")} disabled={busy}>Approve</button><button type="button" className="business-remove" onClick={() => onReview(request, "reject")} disabled={busy}>Reject</button></div></td>
+                <td data-label="Account / request">
+                  <strong>{request.email}</strong>
+                  <small>
+                    {request.display_name || "No profile name"} ·{" "}
+                    {new Date(request.requested_at).toLocaleString()} ·{" "}
+                    {request.message || "No message"}
+                  </small>
+                </td>
+                <td data-label="Role on approval">
+                  <select
+                    aria-label={`Role for ${request.email}`}
+                    value={requestRoles[request.request_id] ?? "inventory_clerk"}
+                    onChange={event =>
+                      setRequestRoles({
+                        ...requestRoles,
+                        [request.request_id]: event.target.value as Role,
+                      })
+                    }
+                  >
+                    {roleOptions.map(option => (
+                      <option key={option} value={option}>
+                        {roleNames[option]}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td data-label="Review">
+                  <div className="business-review-actions">
+                    <button
+                      type="button"
+                      className="business-review-approve"
+                      onClick={() => onReview(request, "approve")}
+                      disabled={busy}
+                    >
+                      Approve
+                    </button>
+                    <button
+                      type="button"
+                      className="business-remove"
+                      onClick={() => onReview(request, "reject")}
+                      disabled={busy}
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
-        {!requests.length && <p className="business-muted">No pending access requests.</p>}
+        {!requests.length && (
+          <p className="business-muted business-table-empty">
+            No pending access requests.
+          </p>
+        )}
       </div>
       <SectionHeading
         eyebrow="Access control"
@@ -2738,37 +3279,39 @@ function UsersPanel({
         className="business-card business-form business-role-form"
         onSubmit={onAssign}
       >
-        <label>
-          Existing account email
-          <Input
-            type="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            required
-            placeholder="person@example.com"
-          />
-        </label>
-        <label>
-          Staff role
-          <select value={role} onChange={e => setRole(e.target.value as Role)}>
-            {roleOptions.map(r => (
-              <option value={r} key={r}>
-                {roleNames[r]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button className="button button--accent" disabled={busy}>
-          <Users size={16} />
-          Assign role
-        </button>
-        <p>
-          The user must first register through the existing account screen. Role
-          changes are enforced by Supabase row-level security.
+        <div className="business-role-form__fields">
+          <label>
+            Existing account email
+            <Input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+              placeholder="person@goodstock.ph"
+            />
+          </label>
+          <label>
+            Staff role
+            <select value={role} onChange={e => setRole(e.target.value as Role)}>
+              {roleOptions.map(r => (
+                <option value={r} key={r}>
+                  {roleNames[r]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button className="gs-btn gs-btn--primary" disabled={busy}>
+            <Users size={16} aria-hidden="true" />
+            Assign role
+          </button>
+        </div>
+        <p className="business-role-form__note">
+          The user must first register through Create Account. Role changes are
+          enforced by row-level security.
         </p>
       </form>
       <div className="business-card business-table-wrap">
-        <table className="business-table">
+        <table className="business-table business-users-table">
           <thead>
             <tr>
               <th>Staff account</th>
@@ -2779,13 +3322,18 @@ function UsersPanel({
           <tbody>
             {rows.map((r: any) => (
               <tr key={r.user_id}>
-                <td>
+                <td data-label="Staff account">
                   <strong>{r.email}</strong>
                   <small>{r.display_name || r.user_id}</small>
                 </td>
-                <td>{roleNames[r.role as Role] ?? r.role}</td>
-                <td>
+                <td data-label="Current role">
+                  <span className="business-status-pill">
+                    {roleNames[r.role as Role] ?? r.role}
+                  </span>
+                </td>
+                <td data-label="Action">
                   <button
+                    type="button"
                     className="business-remove"
                     onClick={() => void onRevoke(r.email)}
                     disabled={busy}
@@ -2798,7 +3346,9 @@ function UsersPanel({
           </tbody>
         </table>
         {!rows.length && (
-          <p className="business-muted">No staff accounts are assigned yet.</p>
+          <p className="business-muted business-table-empty">
+            No staff accounts are assigned yet.
+          </p>
         )}
       </div>
     </>
